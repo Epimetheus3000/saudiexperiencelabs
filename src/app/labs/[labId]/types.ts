@@ -1,0 +1,46 @@
+export type StageMeta = {
+  id: string;
+  name: string;
+  position: number;
+  deadlineAt: string | null;
+};
+
+export type CriterionMeta = {
+  id: string;
+  name: string;
+  scale: number;
+  labId: string | null;
+};
+
+export type CommentWithAuthor = {
+  id: string;
+  userId: string;
+  authorEmail: string;
+  body: string;
+  createdAt: string;
+};
+
+export type RatingEntry = {
+  criterionId: string;
+  userId: string;
+  score: number;
+};
+
+export type IdeaWithExtras = {
+  id: string;
+  labId: string;
+  stageId: string;
+  title: string;
+  category: string | null;
+  description: string | null;
+  pros: string | null;
+  cons: string | null;
+  shortlistReasoning: string | null;
+  conceptDetails: string | null;
+  conceptAudience: string | null;
+  conceptNotes: string | null;
+  createdByEmail: string | null;
+  createdAt: string;
+  ratings: RatingEntry[];
+  comments: CommentWithAuthor[];
+};
