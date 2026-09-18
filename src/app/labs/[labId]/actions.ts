@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import type { StageData } from "./stage-data";
 
 function fail(message: string) {
   return { ok: false as const, error: message };
@@ -11,6 +12,9 @@ function fail(message: string) {
 function ok() {
   return { ok: true as const };
 }
+
+const STAGE_KEYS = ["shortlist", "concept", "prototyping", "goLive", "distribution"] as const;
+type StageKey = (typeof STAGE_KEYS)[number];
 
 const ideaSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -60,16 +64,28 @@ export async function createIdea(labId: string, formData: FormData) {
   return ok();
 }
 
+async function readStageData(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ideaId: string,
+): Promise<StageData> {
+  const { data } = await supabase.from("ideas").select("stage_data").eq("id", ideaId).single();
+  return (data?.stage_data as StageData) ?? {};
+}
+
 export async function moveIdea(
   ideaId: string,
   labId: string,
   newStageId: string,
-  reasoning?: string,
+  shortlistPatch?: { reasoning: string; checklist: Record<string, boolean> },
 ) {
   const supabase = await createClient();
 
-  const update: { stage_id: string; shortlist_reasoning?: string } = { stage_id: newStageId };
-  if (reasoning !== undefined) update.shortlist_reasoning = reasoning;
+  const update: { stage_id: string; stage_data?: StageData } = { stage_id: newStageId };
+
+  if (shortlistPatch) {
+    const current = await readStageData(supabase, ideaId);
+    update.stage_data = { ...current, shortlist: { ...current.shortlist, ...shortlistPatch } };
+  }
 
   const { error } = await supabase.from("ideas").update(update).eq("id", ideaId);
   if (error) return fail(error.message);
@@ -78,30 +94,21 @@ export async function moveIdea(
   return ok();
 }
 
-const conceptSchema = z.object({
-  concept_details: z.string().optional(),
-  concept_audience: z.string().optional(),
-  concept_notes: z.string().optional(),
-});
-
-export async function updateConceptFields(ideaId: string, labId: string, formData: FormData) {
-  const parsed = conceptSchema.safeParse({
-    concept_details: formData.get("concept_details"),
-    concept_audience: formData.get("concept_audience"),
-    concept_notes: formData.get("concept_notes"),
-  });
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+// Generic merge-patch for one stage's slice of stage_data — used for Concept,
+// Prototyping, Go-Live checklist toggles, and Distribution.
+export async function updateStageData(
+  ideaId: string,
+  labId: string,
+  stageKey: StageKey,
+  patch: Record<string, unknown>,
+) {
+  if (!STAGE_KEYS.includes(stageKey)) return fail("Unknown stage");
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("ideas")
-    .update({
-      concept_details: parsed.data.concept_details || null,
-      concept_audience: parsed.data.concept_audience || null,
-      concept_notes: parsed.data.concept_notes || null,
-    })
-    .eq("id", ideaId);
+  const current = await readStageData(supabase, ideaId);
+  const merged: StageData = { ...current, [stageKey]: { ...current[stageKey], ...patch } };
 
+  const { error } = await supabase.from("ideas").update({ stage_data: merged }).eq("id", ideaId);
   if (error) return fail(error.message);
 
   revalidatePath(`/labs/${labId}`);

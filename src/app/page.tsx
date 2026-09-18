@@ -13,7 +13,7 @@ export default async function Home() {
   const supabase = await createClient();
   const { data: labs } = await supabase
     .from("labs")
-    .select("id, name, logo_url, primary_color")
+    .select("id, name, logo_url, primary_color, partner_name")
     .order("name");
 
   return (
@@ -48,7 +48,9 @@ export default async function Home() {
                 >
                   <CardHeader>
                     <CardTitle>{lab.name}</CardTitle>
-                    <CardDescription>Open pipeline</CardDescription>
+                    <CardDescription>
+                      {lab.partner_name ? `with ${lab.partner_name}` : "Open pipeline"}
+                    </CardDescription>
                   </CardHeader>
                 </Card>
               </Link>

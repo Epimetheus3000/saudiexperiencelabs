@@ -34,6 +34,8 @@ export default async function AdminLabDetailPage({
     id: s.id,
     name: s.name,
     position: s.position,
+    description: s.description,
+    gateChecklist: Array.isArray(s.gate_checklist) ? s.gate_checklist : [],
     deadline_at: deadlineByStage.get(s.id) ?? null,
   }));
 
@@ -61,6 +63,8 @@ export default async function AdminLabDetailPage({
           name={lab.name}
           primaryColor={lab.primary_color}
           logoUrl={lab.logo_url}
+          partnerName={lab.partner_name}
+          partnerLogoUrl={lab.partner_logo_url}
         />
       </div>
 

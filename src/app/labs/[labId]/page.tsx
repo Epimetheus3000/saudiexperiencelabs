@@ -42,6 +42,8 @@ export default async function LabPipelinePage({
     id: s.id,
     name: s.name,
     position: s.position,
+    description: s.description,
+    gateChecklist: Array.isArray(s.gate_checklist) ? s.gate_checklist : [],
     deadlineAt: deadlineByStage.get(s.id) ?? null,
   }));
 
@@ -61,10 +63,7 @@ export default async function LabPipelinePage({
     description: idea.description,
     pros: idea.pros,
     cons: idea.cons,
-    shortlistReasoning: idea.shortlist_reasoning,
-    conceptDetails: idea.concept_details,
-    conceptAudience: idea.concept_audience,
-    conceptNotes: idea.concept_notes,
+    stageData: idea.stage_data ?? {},
     createdByEmail: idea.created_by ? (emailById.get(idea.created_by) ?? null) : null,
     createdAt: idea.created_at,
     ratings: (ratingRows ?? [])

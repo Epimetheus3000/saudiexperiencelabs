@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local dev-machine tooling (hardcoded absolute paths, not portable)
+/.claude/launch.json
+/run-dev.sh
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

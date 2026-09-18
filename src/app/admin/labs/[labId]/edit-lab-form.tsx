@@ -12,11 +12,15 @@ export function EditLabForm({
   name,
   primaryColor,
   logoUrl,
+  partnerName,
+  partnerLogoUrl,
 }: {
   labId: string;
   name: string;
   primaryColor: string;
   logoUrl: string | null;
+  partnerName: string | null;
+  partnerLogoUrl: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -50,8 +54,21 @@ export function EditLabForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="logo_url">Logo URL</Label>
+        <Label htmlFor="logo_url">Lab logo URL</Label>
         <Input id="logo_url" name="logo_url" defaultValue={logoUrl ?? ""} placeholder="https://…" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="partner_name">Partner name</Label>
+        <Input id="partner_name" name="partner_name" defaultValue={partnerName ?? ""} placeholder="e.g. HiHome" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="partner_logo_url">Partner logo URL</Label>
+        <Input
+          id="partner_logo_url"
+          name="partner_logo_url"
+          defaultValue={partnerLogoUrl ?? ""}
+          placeholder="https://…"
+        />
       </div>
       <Button type="submit" disabled={isPending}>
         {isPending ? "Saving…" : "Save"}

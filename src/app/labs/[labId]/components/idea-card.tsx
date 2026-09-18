@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import type { IdeaWithExtras, CriterionMeta } from "@/app/labs/[labId]/types";
+import type { IdeaWithExtras, CriterionMeta, StageMeta } from "@/app/labs/[labId]/types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { IdeaDetailDialog } from "./idea-detail-dialog";
@@ -11,15 +11,13 @@ import { IdeaDetailDialog } from "./idea-detail-dialog";
 export function IdeaCard({
   idea,
   labId,
-  isAtLeastConcept,
-  isAtLeastShortlist,
+  stages,
   criteria,
   currentUserId,
 }: {
   idea: IdeaWithExtras;
   labId: string;
-  isAtLeastConcept: boolean;
-  isAtLeastShortlist: boolean;
+  stages: StageMeta[];
   criteria: CriterionMeta[];
   currentUserId: string;
 }) {
@@ -58,8 +56,7 @@ export function IdeaCard({
         idea={idea}
         open={open}
         onOpenChange={setOpen}
-        isAtLeastConcept={isAtLeastConcept}
-        isAtLeastShortlist={isAtLeastShortlist}
+        stages={stages}
         criteria={criteria}
         currentUserId={currentUserId}
         labId={labId}

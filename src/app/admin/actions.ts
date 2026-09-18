@@ -23,15 +23,23 @@ const labSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #0f172a"),
   logo_url: z.string().url().optional().or(z.literal("")),
+  partner_name: z.string().optional(),
+  partner_logo_url: z.string().url().optional().or(z.literal("")),
 });
 
-export async function createLab(formData: FormData) {
-  await requireMaster();
-  const parsed = labSchema.safeParse({
+function labFromForm(formData: FormData) {
+  return labSchema.safeParse({
     name: formData.get("name"),
     primary_color: formData.get("primary_color"),
     logo_url: formData.get("logo_url"),
+    partner_name: formData.get("partner_name"),
+    partner_logo_url: formData.get("partner_logo_url"),
   });
+}
+
+export async function createLab(formData: FormData) {
+  await requireMaster();
+  const parsed = labFromForm(formData);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   const supabase = await createClient();
@@ -39,6 +47,8 @@ export async function createLab(formData: FormData) {
     name: parsed.data.name,
     primary_color: parsed.data.primary_color,
     logo_url: parsed.data.logo_url || null,
+    partner_name: parsed.data.partner_name || null,
+    partner_logo_url: parsed.data.partner_logo_url || null,
   });
   if (error) return fail(error.message);
 
@@ -49,11 +59,7 @@ export async function createLab(formData: FormData) {
 
 export async function updateLab(labId: string, formData: FormData) {
   await requireMaster();
-  const parsed = labSchema.safeParse({
-    name: formData.get("name"),
-    primary_color: formData.get("primary_color"),
-    logo_url: formData.get("logo_url"),
-  });
+  const parsed = labFromForm(formData);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   const supabase = await createClient();
@@ -63,12 +69,15 @@ export async function updateLab(labId: string, formData: FormData) {
       name: parsed.data.name,
       primary_color: parsed.data.primary_color,
       logo_url: parsed.data.logo_url || null,
+      partner_name: parsed.data.partner_name || null,
+      partner_logo_url: parsed.data.partner_logo_url || null,
     })
     .eq("id", labId);
   if (error) return fail(error.message);
 
   revalidatePath(`/admin/labs/${labId}`);
   revalidatePath("/");
+  revalidatePath(`/labs/${labId}`);
   return ok();
 }
 
@@ -94,6 +103,25 @@ export async function createStage(labId: string, formData: FormData) {
   const { error } = await supabase
     .from("stages")
     .insert({ lab_id: labId, name, position: nextPosition });
+  if (error) return fail(error.message);
+
+  revalidatePath(`/admin/labs/${labId}`);
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}
+
+export async function updateStageDetails(
+  labId: string,
+  stageId: string,
+  description: string,
+  gateChecklist: { key: string; label: string }[],
+) {
+  await requireMaster();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("stages")
+    .update({ description: description || null, gate_checklist: gateChecklist })
+    .eq("id", stageId);
   if (error) return fail(error.message);
 
   revalidatePath(`/admin/labs/${labId}`);

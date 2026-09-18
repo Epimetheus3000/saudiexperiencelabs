@@ -1,7 +1,11 @@
+import type { ChecklistItem, StageData } from "./stage-data";
+
 export type StageMeta = {
   id: string;
   name: string;
   position: number;
+  description: string | null;
+  gateChecklist: ChecklistItem[];
   deadlineAt: string | null;
 };
 
@@ -35,10 +39,7 @@ export type IdeaWithExtras = {
   description: string | null;
   pros: string | null;
   cons: string | null;
-  shortlistReasoning: string | null;
-  conceptDetails: string | null;
-  conceptAudience: string | null;
-  conceptNotes: string | null;
+  stageData: StageData;
   createdByEmail: string | null;
   createdAt: string;
   ratings: RatingEntry[];

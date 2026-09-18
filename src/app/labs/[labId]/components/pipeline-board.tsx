@@ -25,18 +25,16 @@ function Column({
   stage,
   ideas,
   labId,
+  stages,
   criteria,
   currentUserId,
-  shortlistPosition,
-  conceptPosition,
 }: {
   stage: StageMeta;
   ideas: IdeaWithExtras[];
   labId: string;
+  stages: StageMeta[];
   criteria: CriterionMeta[];
   currentUserId: string;
-  shortlistPosition: number;
-  conceptPosition: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
@@ -52,8 +50,11 @@ function Column({
           <h3 className="text-sm font-semibold">{stage.name}</h3>
           <Badge variant="secondary">{ideas.length}</Badge>
         </div>
+        {stage.description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{stage.description}</p>
+        )}
         {stage.deadlineAt && (
-          <p className="text-xs">
+          <p className="mt-1 text-xs">
             <Countdown deadlineAt={stage.deadlineAt} />
           </p>
         )}
@@ -64,10 +65,9 @@ function Column({
             key={idea.id}
             idea={idea}
             labId={labId}
+            stages={stages}
             criteria={criteria}
             currentUserId={currentUserId}
-            isAtLeastShortlist={stage.position >= shortlistPosition}
-            isAtLeastConcept={stage.position >= conceptPosition}
           />
         ))}
         {ideas.length === 0 && (
@@ -106,7 +106,6 @@ export function PipelineBoard({
 
   const longlistStage = stages.find((s) => s.name === "Longlist");
   const shortlistStage = stages.find((s) => s.name === "Shortlist");
-  const conceptStage = stages.find((s) => s.name === "Concept");
 
   const ideasByStage = useMemo(() => {
     const map = new Map<string, IdeaWithExtras[]>();
@@ -124,13 +123,23 @@ export function PipelineBoard({
     setActiveIdeaId(String(event.active.id));
   }
 
-  async function commitMove(ideaId: string, targetStageId: string, reasoning?: string) {
-    const result = await moveIdea(ideaId, labId, targetStageId, reasoning);
+  async function commitMove(
+    ideaId: string,
+    targetStageId: string,
+    shortlistPatch?: { reasoning: string; checklist: Record<string, boolean> },
+  ) {
+    const result = await moveIdea(ideaId, labId, targetStageId, shortlistPatch);
     if (result.ok) {
       setLocalIdeas((prev) =>
         prev.map((i) =>
           i.id === ideaId
-            ? { ...i, stageId: targetStageId, shortlistReasoning: reasoning ?? i.shortlistReasoning }
+            ? {
+                ...i,
+                stageId: targetStageId,
+                stageData: shortlistPatch
+                  ? { ...i.stageData, shortlist: { ...i.stageData.shortlist, ...shortlistPatch } }
+                  : i.stageData,
+              }
             : i,
         ),
       );
@@ -152,7 +161,7 @@ export function PipelineBoard({
     const needsReasoning =
       longlistStage &&
       targetStage.position > longlistStage.position &&
-      !idea.shortlistReasoning;
+      !idea.stageData.shortlist?.reasoning;
 
     if (needsReasoning) {
       setPendingMove({
@@ -186,10 +195,9 @@ export function PipelineBoard({
               stage={stage}
               ideas={ideasByStage.get(stage.id) ?? []}
               labId={labId}
+              stages={stages}
               criteria={criteria}
               currentUserId={currentUserId}
-              shortlistPosition={shortlistStage?.position ?? Infinity}
-              conceptPosition={conceptStage?.position ?? Infinity}
             />
           ))}
         </div>
@@ -210,9 +218,13 @@ export function PipelineBoard({
           open
           ideaTitle={pendingMove.ideaTitle}
           targetStageName={pendingMove.targetStageName}
+          checklistItems={shortlistStage?.gateChecklist ?? []}
           onCancel={() => setPendingMove(null)}
-          onConfirm={async (reasoning) => {
-            const result = await commitMove(pendingMove.ideaId, pendingMove.targetStageId, reasoning);
+          onConfirm={async (reasoning, checklist) => {
+            const result = await commitMove(pendingMove.ideaId, pendingMove.targetStageId, {
+              reasoning,
+              checklist,
+            });
             if (result.ok) setPendingMove(null);
             return result;
           }}

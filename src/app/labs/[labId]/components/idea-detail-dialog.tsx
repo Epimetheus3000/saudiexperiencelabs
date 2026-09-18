@@ -3,11 +3,15 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { updateConceptFields, upsertRating, addComment } from "@/app/labs/[labId]/actions";
-import type { IdeaWithExtras, CriterionMeta } from "@/app/labs/[labId]/types";
+import { updateStageData, upsertRating, addComment } from "@/app/labs/[labId]/actions";
+import type { IdeaWithExtras, CriterionMeta, StageMeta } from "@/app/labs/[labId]/types";
+import type { ChecklistItem, TodoItem } from "@/app/labs/[labId]/stage-data";
+import { DISTRIBUTION_CHANNELS } from "@/app/labs/[labId]/stage-data";
+import { VisualsUploader } from "./visuals-uploader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -32,9 +36,7 @@ function ScoreButton({
       type="button"
       onClick={onSelect}
       className={`flex h-8 w-8 items-center justify-center rounded-md border text-sm font-medium transition-colors ${
-        selected
-          ? "border-transparent bg-[var(--lab-primary)] text-white"
-          : "hover:bg-muted"
+        selected ? "border-transparent bg-[var(--lab-primary)] text-white" : "hover:bg-muted"
       }`}
     >
       {score}
@@ -94,55 +96,340 @@ function CriterionRating({
   );
 }
 
-function ConceptFieldsForm({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
+function ChecklistSection({
+  ideaId,
+  labId,
+  stageKey,
+  items,
+  checked,
+}: {
+  ideaId: string;
+  labId: string;
+  stageKey: "shortlist" | "goLive";
+  items: ChecklistItem[];
+  checked: Record<string, boolean>;
+}) {
   const [isPending, startTransition] = useTransition();
+
+  function onToggle(key: string, value: boolean) {
+    startTransition(async () => {
+      const result = await updateStageData(ideaId, labId, stageKey, {
+        checklist: { ...checked, [key]: value },
+      });
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className={`space-y-1.5 ${isPending ? "opacity-60" : ""}`}>
+      {items.map((item) => (
+        <label key={item.key} className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={checked[item.key] ?? false}
+            onChange={(e) => onToggle(item.key, e.target.checked)}
+          />
+          {item.label}
+        </label>
+      ))}
+      <p className="text-xs text-muted-foreground">Tracked for visibility — doesn&apos;t block moving forward.</p>
+    </div>
+  );
+}
+
+function ShortlistSection({ idea, labId, stage }: { idea: IdeaWithExtras; labId: string; stage: StageMeta }) {
+  const [reasoning, setReasoning] = useState(idea.stageData.shortlist?.reasoning ?? "");
+  const [isPending, startTransition] = useTransition();
+
+  function onSave() {
+    startTransition(async () => {
+      const result = await updateStageData(idea.id, labId, "shortlist", { reasoning });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Reasoning saved");
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="reasoning">Reasoning for shortlisting</Label>
+        <Textarea id="reasoning" rows={3} value={reasoning} onChange={(e) => setReasoning(e.target.value)} />
+        <Button size="sm" disabled={isPending} onClick={onSave}>
+          {isPending ? "Saving…" : "Save reasoning"}
+        </Button>
+      </div>
+      <ChecklistSection
+        ideaId={idea.id}
+        labId={labId}
+        stageKey="shortlist"
+        items={stage.gateChecklist}
+        checked={idea.stageData.shortlist?.checklist ?? {}}
+      />
+    </div>
+  );
+}
+
+function ConceptSection({
+  idea,
+  labId,
+  criteria,
+  currentUserId,
+}: {
+  idea: IdeaWithExtras;
+  labId: string;
+  criteria: CriterionMeta[];
+  currentUserId: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const concept = idea.stageData.concept ?? {};
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      const result = await updateConceptFields(idea.id, labId, formData);
+      const result = await updateStageData(idea.id, labId, "concept", {
+        place: formData.get("place") || null,
+        story: formData.get("story") || null,
+        operationalDetails: formData.get("operationalDetails") || null,
+        audience: formData.get("audience") || null,
+        notes: formData.get("notes") || null,
+      });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      toast.success("Concept details saved");
+      toast.success("Concept saved");
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="place">Place</Label>
+          <Textarea id="place" name="place" defaultValue={concept.place ?? ""} rows={2} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="story">Story</Label>
+          <Textarea id="story" name="story" defaultValue={concept.story ?? ""} rows={2} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="operationalDetails">Operational details</Label>
+          <Textarea
+            id="operationalDetails"
+            name="operationalDetails"
+            defaultValue={concept.operationalDetails ?? ""}
+            rows={2}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="audience">Audience</Label>
+          <Textarea id="audience" name="audience" defaultValue={concept.audience ?? ""} rows={2} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="notes">Notes</Label>
+          <Textarea id="notes" name="notes" defaultValue={concept.notes ?? ""} rows={2} />
+        </div>
+        <Button type="submit" size="sm" disabled={isPending}>
+          {isPending ? "Saving…" : "Save concept"}
+        </Button>
+      </form>
+
+      <div className="space-y-1.5">
+        <Label>Visuals</Label>
+        <VisualsUploader
+          ideaId={idea.id}
+          labId={labId}
+          visuals={concept.visuals ?? []}
+          currentUserId={currentUserId}
+        />
+      </div>
+
+      <Separator />
+      <div>
+        <p className="mb-1 text-sm font-medium">Ratings</p>
+        <div className="divide-y">
+          {criteria.map((c) => (
+            <CriterionRating
+              key={c.id}
+              ideaId={idea.id}
+              labId={labId}
+              criterion={c}
+              currentUserId={currentUserId}
+              ratings={idea.ratings}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrototypingSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const prototyping = idea.stageData.prototyping ?? {};
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await updateStageData(idea.id, labId, "prototyping", {
+        testDate: formData.get("testDate") || null,
+        audienceTested: formData.get("audienceTested") || null,
+        mvpDescription: formData.get("mvpDescription") || null,
+        results: formData.get("results") || null,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Prototyping details saved");
     });
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="concept_details">Experience details</Label>
-        <Textarea
-          id="concept_details"
-          name="concept_details"
-          defaultValue={idea.conceptDetails ?? ""}
-          rows={3}
-        />
+        <Label htmlFor="testDate">Test date</Label>
+        <Input id="testDate" name="testDate" type="date" defaultValue={prototyping.testDate ?? ""} />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="concept_audience">Audience</Label>
+        <Label htmlFor="audienceTested">Audience tested with</Label>
         <Textarea
-          id="concept_audience"
-          name="concept_audience"
-          defaultValue={idea.conceptAudience ?? ""}
+          id="audienceTested"
+          name="audienceTested"
+          defaultValue={prototyping.audienceTested ?? ""}
           rows={2}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="concept_notes">Notes</Label>
+        <Label htmlFor="mvpDescription">MVP description</Label>
         <Textarea
-          id="concept_notes"
-          name="concept_notes"
-          defaultValue={idea.conceptNotes ?? ""}
+          id="mvpDescription"
+          name="mvpDescription"
+          defaultValue={prototyping.mvpDescription ?? ""}
           rows={2}
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="results">Results</Label>
+        <Textarea id="results" name="results" defaultValue={prototyping.results ?? ""} rows={3} />
       </div>
       <Button type="submit" size="sm" disabled={isPending}>
-        {isPending ? "Saving…" : "Save concept details"}
+        {isPending ? "Saving…" : "Save"}
       </Button>
     </form>
+  );
+}
+
+function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const distribution = idea.stageData.distribution ?? {};
+  const [todoText, setTodoText] = useState("");
+
+  function saveChannels(channels: string[]) {
+    startTransition(async () => {
+      const result = await updateStageData(idea.id, labId, "distribution", { channels });
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  function onToggleChannel(key: string, on: boolean) {
+    const current = distribution.channels ?? [];
+    saveChannels(on ? [...current, key] : current.filter((c) => c !== key));
+  }
+
+  function onSaveRequirements(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await updateStageData(idea.id, labId, "distribution", {
+        requirements: formData.get("requirements") || null,
+      });
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  function saveTodo(todo: TodoItem[]) {
+    startTransition(async () => {
+      const result = await updateStageData(idea.id, labId, "distribution", { todo });
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  function onAddTodo() {
+    if (!todoText.trim()) return;
+    const todo = [...(distribution.todo ?? []), { id: crypto.randomUUID(), text: todoText.trim(), done: false }];
+    saveTodo(todo);
+    setTodoText("");
+  }
+
+  function onToggleTodo(id: string, done: boolean) {
+    saveTodo((distribution.todo ?? []).map((t) => (t.id === id ? { ...t, done } : t)));
+  }
+
+  function onRemoveTodo(id: string) {
+    saveTodo((distribution.todo ?? []).filter((t) => t.id !== id));
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <Label>Channels</Label>
+        <div className="space-y-1.5">
+          {DISTRIBUTION_CHANNELS.map((ch) => (
+            <label key={ch.key} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={(distribution.channels ?? []).includes(ch.key)}
+                disabled={isPending}
+                onChange={(e) => onToggleChannel(ch.key, e.target.checked)}
+              />
+              {ch.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <form onSubmit={onSaveRequirements} className="space-y-1.5">
+        <Label htmlFor="requirements">Requirements</Label>
+        <Textarea id="requirements" name="requirements" defaultValue={distribution.requirements ?? ""} rows={2} />
+        <Button type="submit" size="sm" disabled={isPending}>
+          Save requirements
+        </Button>
+      </form>
+
+      <div className="space-y-1.5">
+        <Label>Todo list</Label>
+        <div className="space-y-1">
+          {(distribution.todo ?? []).map((t) => (
+            <div key={t.id} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={t.done} onChange={(e) => onToggleTodo(t.id, e.target.checked)} />
+              <span className={t.done ? "flex-1 line-through text-muted-foreground" : "flex-1"}>{t.text}</span>
+              <button type="button" onClick={() => onRemoveTodo(t.id)} className="text-xs text-muted-foreground hover:text-destructive">
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={todoText}
+            onChange={(e) => setTodoText(e.target.value)}
+            placeholder="Add a task…"
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), onAddTodo())}
+          />
+          <Button type="button" size="sm" variant="outline" onClick={onAddTodo} disabled={isPending}>
+            Add
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -199,8 +486,7 @@ export function IdeaDetailDialog({
   idea,
   open,
   onOpenChange,
-  isAtLeastConcept,
-  isAtLeastShortlist,
+  stages,
   criteria,
   currentUserId,
   labId,
@@ -208,12 +494,24 @@ export function IdeaDetailDialog({
   idea: IdeaWithExtras;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  isAtLeastConcept: boolean;
-  isAtLeastShortlist: boolean;
+  stages: StageMeta[];
   criteria: CriterionMeta[];
   currentUserId: string;
   labId: string;
 }) {
+  const currentStage = stages.find((s) => s.id === idea.stageId);
+  const currentPosition = currentStage?.position ?? 0;
+  const positionOf = (name: string) => stages.find((s) => s.name === name)?.position ?? Infinity;
+
+  const atLeastShortlist = currentPosition >= positionOf("Shortlist");
+  const atLeastConcept = currentPosition >= positionOf("Concept");
+  const atLeastPrototyping = currentPosition >= positionOf("Prototyping / Field-Testing");
+  const atLeastGoLive = currentPosition >= positionOf("Go-Live");
+  const atLeastDistribution = currentPosition >= positionOf("Distribution");
+
+  const shortlistStage = stages.find((s) => s.name === "Shortlist");
+  const goLiveStage = stages.find((s) => s.name === "Go-Live");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
@@ -229,9 +527,7 @@ export function IdeaDetailDialog({
           {idea.description && (
             <div>
               <p className="text-sm font-medium">Description</p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {idea.description}
-              </p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{idea.description}</p>
             </div>
           )}
 
@@ -239,51 +535,67 @@ export function IdeaDetailDialog({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium">Pros</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {idea.pros || "—"}
-                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{idea.pros || "—"}</p>
               </div>
               <div>
                 <p className="text-sm font-medium">Cons</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {idea.cons || "—"}
-                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{idea.cons || "—"}</p>
               </div>
             </div>
           )}
 
-          {isAtLeastShortlist && idea.shortlistReasoning && (
-            <div>
-              <p className="text-sm font-medium">Shortlist reasoning</p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {idea.shortlistReasoning}
-              </p>
-            </div>
+          {atLeastShortlist && shortlistStage && (
+            <>
+              <Separator />
+              <div>
+                <p className="mb-2 text-sm font-medium">Shortlist</p>
+                <ShortlistSection idea={idea} labId={labId} stage={shortlistStage} />
+              </div>
+            </>
           )}
 
-          {isAtLeastConcept && (
+          {atLeastConcept && (
             <>
               <Separator />
               <div>
                 <p className="mb-2 text-sm font-medium">Concept</p>
-                <ConceptFieldsForm idea={idea} labId={labId} />
+                <ConceptSection idea={idea} labId={labId} criteria={criteria} currentUserId={currentUserId} />
               </div>
+            </>
+          )}
 
+          {atLeastPrototyping && (
+            <>
               <Separator />
               <div>
-                <p className="mb-1 text-sm font-medium">Ratings</p>
-                <div className="divide-y">
-                  {criteria.map((c) => (
-                    <CriterionRating
-                      key={c.id}
-                      ideaId={idea.id}
-                      labId={labId}
-                      criterion={c}
-                      currentUserId={currentUserId}
-                      ratings={idea.ratings}
-                    />
-                  ))}
-                </div>
+                <p className="mb-2 text-sm font-medium">Prototyping / Field-Testing</p>
+                <PrototypingSection idea={idea} labId={labId} />
+              </div>
+            </>
+          )}
+
+          {atLeastGoLive && goLiveStage && (
+            <>
+              <Separator />
+              <div>
+                <p className="mb-2 text-sm font-medium">Go-Live checklist</p>
+                <ChecklistSection
+                  ideaId={idea.id}
+                  labId={labId}
+                  stageKey="goLive"
+                  items={goLiveStage.gateChecklist}
+                  checked={idea.stageData.goLive?.checklist ?? {}}
+                />
+              </div>
+            </>
+          )}
+
+          {atLeastDistribution && (
+            <>
+              <Separator />
+              <div>
+                <p className="mb-2 text-sm font-medium">Distribution</p>
+                <DistributionSection idea={idea} labId={labId} />
               </div>
             </>
           )}

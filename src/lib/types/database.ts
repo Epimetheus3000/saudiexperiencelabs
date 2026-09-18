@@ -1,5 +1,5 @@
-// Hand-written to match supabase/migrations/0001_init.sql.
-// Once the Supabase project is linked, regenerate with:
+// Hand-written to match supabase/migrations/0001_init.sql and
+// 0002_six_stage_pipeline.sql. Once the Supabase project is linked, regenerate with:
 //   npx supabase gen types typescript --linked > src/lib/types/database.ts
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
@@ -13,6 +13,8 @@ export interface Database {
           name: string;
           logo_url: string | null;
           primary_color: string;
+          partner_name: string | null;
+          partner_logo_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -20,6 +22,8 @@ export interface Database {
           name: string;
           logo_url?: string | null;
           primary_color?: string;
+          partner_name?: string | null;
+          partner_logo_url?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["labs"]["Insert"]>;
@@ -62,6 +66,8 @@ export interface Database {
           lab_id: string;
           name: string;
           position: number;
+          description: string | null;
+          gate_checklist: Json;
           created_at: string;
         };
         Insert: {
@@ -69,6 +75,8 @@ export interface Database {
           lab_id: string;
           name: string;
           position: number;
+          description?: string | null;
+          gate_checklist?: Json;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["stages"]["Insert"]>;
@@ -96,10 +104,7 @@ export interface Database {
           description: string | null;
           pros: string | null;
           cons: string | null;
-          shortlist_reasoning: string | null;
-          concept_details: string | null;
-          concept_audience: string | null;
-          concept_notes: string | null;
+          stage_data: Json;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -113,10 +118,7 @@ export interface Database {
           description?: string | null;
           pros?: string | null;
           cons?: string | null;
-          shortlist_reasoning?: string | null;
-          concept_details?: string | null;
-          concept_audience?: string | null;
-          concept_notes?: string | null;
+          stage_data?: Json;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
