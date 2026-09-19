@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -49,10 +50,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Saudi Experience Labs</CardTitle>
+    // The Grid visual property, full-bleed — this is the one screen where a
+    // bigger brand moment is appropriate; every other screen sticks to
+    // Minimal/Strip only, per the brand rule against mixing property styles.
+    <div className="pattern-grid-bg flex flex-1 items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-sm shadow-xl">
+        <CardHeader className="items-center text-center">
+          <Image
+            src="/brand/visit-saudi-logo.png"
+            alt="Visit Saudi — Welcome to Arabia"
+            width={241}
+            height={134}
+            className="mb-2 h-16 w-auto"
+            priority
+          />
+          <CardTitle>Experience Labs</CardTitle>
           <CardDescription>
             {sent
               ? "Check your inbox for a sign-in link."

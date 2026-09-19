@@ -41,6 +41,10 @@ yarn-error.log*
 /.claude/launch.json
 /run-dev.sh
 
+# source brand guideline files and extraction working files (large; only the
+# final processed assets in public/brand/ are needed by the app)
+/brand-assets/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

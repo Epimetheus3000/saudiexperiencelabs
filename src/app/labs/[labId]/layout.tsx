@@ -32,13 +32,15 @@ export default async function LabLayout({
       style={
         {
           "--lab-primary": lab.primary_color,
+          "--strip-color": lab.primary_color,
         } as React.CSSProperties
       }
     >
-      <header
-        className="flex items-center justify-between px-6 py-4"
-        style={{ backgroundColor: `color-mix(in srgb, var(--lab-primary) 10%, var(--background))` }}
-      >
+      {/* Background stays white per the brand guidelines (only purple, white,
+          or imagery are permitted as backgrounds) — per-lab identity comes
+          from the accent-colored text/border and the Strip pattern band
+          below, not a tinted background fill. */}
+      <header className="flex items-center justify-between bg-background px-6 py-4">
         <div className="flex items-center gap-3">
           {lab.logo_url && (
             <Image
@@ -60,7 +62,7 @@ export default async function LabLayout({
           </div>
           {lab.partner_name && (
             <div className="ml-4 flex items-center gap-2 border-l pl-4">
-              {lab.partner_logo_url && (
+              {lab.partner_logo_url ? (
                 <Image
                   src={lab.partner_logo_url}
                   alt={lab.partner_name}
@@ -69,6 +71,13 @@ export default async function LabLayout({
                   className="rounded"
                   unoptimized
                 />
+              ) : (
+                <div
+                  className="flex h-6 w-6 items-center justify-center rounded border border-dashed text-[8px] text-muted-foreground"
+                  title="Partner logo pending"
+                >
+                  ?
+                </div>
               )}
               <span className="text-sm text-muted-foreground">with {lab.partner_name}</span>
             </div>
@@ -86,6 +95,7 @@ export default async function LabLayout({
           <SignOutButton />
         </div>
       </header>
+      <div className="pattern-strip h-2 w-full" aria-hidden />
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
     </div>
   );

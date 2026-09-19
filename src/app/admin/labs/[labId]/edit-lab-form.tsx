@@ -6,6 +6,7 @@ import { updateLab } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BrandColorPicker } from "@/components/admin/brand-color-picker";
 
 export function EditLabForm({
   labId,
@@ -43,16 +44,7 @@ export function EditLabForm({
         <Label htmlFor="name">Lab name</Label>
         <Input id="name" name="name" defaultValue={name} required />
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="primary_color">Brand color</Label>
-        <Input
-          id="primary_color"
-          name="primary_color"
-          type="color"
-          defaultValue={primaryColor}
-          className="h-9 w-16 p-1"
-        />
-      </div>
+      <BrandColorPicker name="primary_color" defaultValue={primaryColor} />
       <div className="space-y-1.5">
         <Label htmlFor="logo_url">Lab logo URL</Label>
         <Input id="logo_url" name="logo_url" defaultValue={logoUrl ?? ""} placeholder="https://…" />

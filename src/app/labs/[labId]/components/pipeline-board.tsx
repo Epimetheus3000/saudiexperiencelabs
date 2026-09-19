@@ -45,7 +45,7 @@ function Column({
         isOver ? "ring-2 ring-[var(--lab-primary)]" : ""
       }`}
     >
-      <div className="border-b px-3 py-2">
+      <div className="px-3 pt-2 pb-2.5">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">{stage.name}</h3>
           <Badge variant="secondary">{ideas.length}</Badge>
@@ -59,6 +59,7 @@ function Column({
           </p>
         )}
       </div>
+      <div className="pattern-strip h-1.5 w-full" aria-hidden />
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
         {ideas.map((idea) => (
           <IdeaCard

@@ -9,7 +9,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading-brand);
+  --font-body-brand: var(--font-body-brand);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,13 +50,43 @@
 }
 
 :root {
+  /* Visit Saudi brand palette — exact values from the official comprehensive
+     guidelines (Color palette, p.20). Never introduce colors outside this set. */
+  --brand-purple-dark: #78006e; /* primary, Pantone 512 C */
+  --brand-purple-vibrant: #be008c; /* primary, Pantone 233 C */
+  --brand-gray: #ebebeb; /* neutral, Pantone 649 C */
+  --brand-text-gray: #4b4b4b; /* functional text gray, Pantone Cool Gray */
+  --brand-red: #ff4664; /* secondary, Pantone 198 C */
+  --brand-orange: #fa783c; /* secondary, Pantone 7413 C */
+  --brand-blue-dark: #646ec8; /* secondary, Pantone 7683 C */
+  --brand-blue: #64a0dc; /* secondary, Pantone 2171 C */
+  --brand-green-dark: #3ca06e; /* secondary, Pantone 3285 C */
+  --brand-green: #46c8a0; /* secondary, Pantone 563 C */
+
+  /* Per-lab accent palette (7 on-brand options: 6 secondary colors + vibrant
+     purple). Backgrounds stay white/purple per the guidelines — accent color
+     is applied to borders, badges, and the recolored Strip pattern only. */
+  --brand-accent-1: var(--brand-red);
+  --brand-accent-2: var(--brand-orange);
+  --brand-accent-3: var(--brand-blue-dark);
+  --brand-accent-4: var(--brand-blue);
+  --brand-accent-5: var(--brand-green-dark);
+  --brand-accent-6: var(--brand-green);
+  --brand-accent-7: var(--brand-purple-vibrant);
+
+  /* Typeface slots — real Saudi Serif / Saudi Sans font files to be supplied
+     separately. Do not substitute a different real typeface here; the sans
+     fallback keeps things legible until @font-face is added. */
+  --font-heading-brand: "Saudi Serif", var(--font-sans);
+  --font-body-brand: "Saudi Sans", var(--font-sans);
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: var(--brand-purple-dark);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -63,10 +94,10 @@
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: var(--brand-red);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: var(--brand-purple-dark);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -127,4 +158,51 @@
   html {
     @apply font-sans;
   }
+  h1, h2, h3 {
+    font-family: var(--font-heading-brand);
+  }
+}
+
+/*
+ * Visit Saudi "Strip solid" visual property, reproduced unaltered from the
+ * comprehensive guidelines (p.42) as a CSS mask so it can be recolored per
+ * lab using only colors already in the brand palette — never a new hue, and
+ * the artwork itself is never redrawn. Used for header/divider accents only,
+ * per the guideline rule that backgrounds stay white/purple/imagery.
+ */
+.pattern-strip {
+  background-color: var(--strip-color, var(--brand-purple-dark));
+  -webkit-mask-image: url("/brand/pattern-strip-mask.png");
+  mask-image: url("/brand/pattern-strip-mask.png");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: auto 100%;
+  mask-size: auto 100%;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
+/* The same property applied "Minimal" per the guidelines (p.38): a single
+   tonal color only — gray, not a lab accent — for subtle/sophisticated
+   contexts rather than lab identity. */
+.pattern-strip-minimal {
+  background-color: var(--brand-text-gray);
+  opacity: 0.35;
+  -webkit-mask-image: url("/brand/pattern-strip-mask.png");
+  mask-image: url("/brand/pattern-strip-mask.png");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: auto 100%;
+  mask-size: auto 100%;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
+/* Visit Saudi "Grid" visual property (p.36-37), used unaltered as a full
+   crop — reserved for the login screen only, per the brand rule against
+   mixing property styles on one screen with Minimal/Strip. */
+.pattern-grid-bg {
+  background-image: url("/brand/pattern-grid.jpg");
+  background-size: cover;
+  background-position: center;
 }
