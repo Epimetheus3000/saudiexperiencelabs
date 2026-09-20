@@ -197,15 +197,3 @@
   -webkit-mask-position: left center;
   mask-position: left center;
 }
-
-/* Visit Saudi "Grid" visual property (p.36-37), used unaltered as a full
-   crop — reserved for the login screen only, per the brand rule against
-   mixing property styles on one screen with Minimal/Strip. */
-.pattern-grid-bg {
-  /* A white wash over the tile keeps the pattern as supporting texture
-     rather than competing with the photo panel and the sign-in card. */
-  background-image: linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
-    url("/brand/pattern-grid.jpg");
-  background-size: cover;
-  background-position: center;
-}
