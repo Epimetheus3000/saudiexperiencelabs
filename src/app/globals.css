@@ -202,7 +202,10 @@
    crop — reserved for the login screen only, per the brand rule against
    mixing property styles on one screen with Minimal/Strip. */
 .pattern-grid-bg {
-  background-image: url("/brand/pattern-grid.jpg");
+  /* A white wash over the tile keeps the pattern as supporting texture
+     rather than competing with the photo panel and the sign-in card. */
+  background-image: linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    url("/brand/pattern-grid.jpg");
   background-size: cover;
   background-position: center;
 }
