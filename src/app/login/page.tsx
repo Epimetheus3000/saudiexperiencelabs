@@ -32,12 +32,13 @@ export default function LoginPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   async function onSubmit(values: FormValues) {
+    // The magic link's destination is set in the Supabase "Magic Link" email
+    // template (/auth/confirm?token_hash=...&type=magiclink), not here — see
+    // PROJECT_NOTES.md for why this uses verifyOtp instead of the PKCE
+    // exchangeCodeForSession flow.
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: values.email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
     });
 
     if (error) {

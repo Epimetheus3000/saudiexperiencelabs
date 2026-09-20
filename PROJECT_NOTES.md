@@ -179,13 +179,54 @@ processed files in `public/brand/` are needed by the app).
    domain. Suggested fix: ask their IT to whitelist the domain (and
    `*.supabase.co`, since magic-link auth calls Supabase directly from the
    browser). Not something fixable from this side.
-3. **Invite emails not arriving reliably** — Supabase's built-in email
-   sender is testing-only and commonly hits spam filters. Recommended fix
-   (not yet done): set up a real SMTP provider (e.g. Resend) with the
-   project's own sending domain and SPF/DKIM records at Namecheap.
+3. ~~**Invite emails not arriving reliably**~~ — resolved: custom SMTP via
+   Resend is configured in Supabase (Authentication → Emails → SMTP
+   Settings), with `saudiexperiencelabs.com` verified via SPF/DKIM at
+   Namecheap.
 4. **Real font files** (Saudi Serif, Saudi Sans) — pending from the user.
 5. **Partner logo files** — pending from the user, sourced directly from
    each partner.
+
+## Magic-link sign-in flow (PKCE → token_hash + explicit click)
+
+The login flow originally used `signInWithOtp` + a `/auth/callback` route
+calling `exchangeCodeForSession(code)` (PKCE) — the standard Supabase SSR
+pattern. In practice, users on corporate email (the same networks that
+already interfered with domain access — see the wifi item above, now
+resolved via Resend/SPF/DKIM) reported clicking the magic link and landing
+back on the login page instead of being signed in.
+
+Root cause: many corporate email security gateways (Safe Links, Mimecast,
+Proofpoint, etc.) pre-fetch/scan links in inbound mail *before* the
+recipient clicks them. PKCE codes and OTP tokens are single-use — a scan
+consumes it, so the real click gets an already-expired token and fails.
+This also happens independent of scanning if someone requests the link on
+one device/browser and opens it on another, since PKCE requires a matching
+`code_verifier` cookie from the requesting browser.
+
+Fix, in two parts:
+1. **`/auth/confirm`** (`src/app/auth/confirm/page.tsx`) replaces the
+   token-exchange step: it uses `supabase.auth.verifyOtp({ token_hash,
+   type })` instead of PKCE, which doesn't depend on any cookie from the
+   requesting browser — it works from any device.
+2. It renders a **"Continue" button the person must click** rather than
+   verifying automatically on page load. An automated link-scanner fetches
+   the page but doesn't click buttons, so it can no longer consume the
+   token before the real user does.
+3. The Supabase **Magic Link email template** was changed (Dashboard →
+   Authentication → Emails → Templates) from `{{ .ConfirmationURL }}` to
+   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink`
+   so links point at our own page instead of Supabase's
+   auto-verifying `/auth/v1/verify` endpoint.
+
+`/auth/confirm` is listed in `PUBLIC_PATHS` in
+`src/lib/supabase/middleware.ts` — it must stay there, or unauthenticated
+visitors get redirected to `/login` before they can click Continue.
+
+The old `/auth/callback` route is untouched and still used by the admin
+**invite-user** flow (`inviteUserByEmail`, in `src/app/admin/actions.ts`),
+which is a separate Supabase email template — don't merge or remove it
+when working on magic-link auth.
 
 ## Local dev environment (if working locally again)
 
