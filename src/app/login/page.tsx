@@ -15,7 +15,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 
 const schema = z.object({
@@ -57,14 +56,13 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="items-center text-center">
           <Image
-            src="/brand/visit-saudi-logo.png"
-            alt="Visit Saudi — Welcome to Arabia"
-            width={241}
-            height={134}
+            src="/brand/saudi-experience-labs-logo.png"
+            alt="Saudi Experience Labs"
+            width={747}
+            height={243}
             className="mb-2 h-16 w-auto"
             priority
           />
-          <CardTitle>Experience Labs</CardTitle>
           <CardDescription>
             {sent
               ? "Check your inbox for a sign-in link."

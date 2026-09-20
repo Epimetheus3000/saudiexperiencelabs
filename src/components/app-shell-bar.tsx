@@ -1,6 +1,14 @@
+"use client";
+
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 export function AppShellBar() {
+  const pathname = usePathname();
+  if (pathname.startsWith("/login")) {
+    return null;
+  }
+
   return (
     <div className="relative bg-background">
       <div className="flex items-center px-6 py-3">
