@@ -4,6 +4,7 @@ import { EditLabForm } from "./edit-lab-form";
 import { StageManager } from "./stage-manager";
 import { MembershipManager } from "./membership-manager";
 import { LabCriteriaManager } from "./lab-criteria-manager";
+import { LabCategoriesManager } from "./lab-categories-manager";
 import { Separator } from "@/components/ui/separator";
 
 export default async function AdminLabDetailPage({
@@ -77,7 +78,7 @@ export default async function AdminLabDetailPage({
 
       <Separator />
 
-      <div>
+      <div id="members" className="scroll-mt-6">
         <h2 className="mb-4 text-lg font-semibold">Members</h2>
         <MembershipManager labId={lab.id} members={members} availableUsers={availableUsers} />
       </div>
@@ -87,6 +88,17 @@ export default async function AdminLabDetailPage({
       <div>
         <h2 className="mb-4 text-lg font-semibold">Lab-specific rating criteria</h2>
         <LabCriteriaManager labId={lab.id} criteria={criteria ?? []} />
+      </div>
+
+      <Separator />
+
+      <div>
+        <h2 className="mb-4 text-lg font-semibold">Idea categories</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Shown as a dropdown on the new-idea form for this lab. Tune it to match the lab&apos;s
+          theme.
+        </p>
+        <LabCategoriesManager labId={lab.id} categories={lab.categories ?? []} />
       </div>
     </div>
   );

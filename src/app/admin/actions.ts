@@ -81,6 +81,33 @@ export async function updateLab(labId: string, formData: FormData) {
   return ok();
 }
 
+export async function updateLabCategories(labId: string, categories: string[]) {
+  await requireMaster();
+  const cleaned = [...new Set(categories.map((c) => c.trim()).filter(Boolean))];
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("labs")
+    .update({ categories: cleaned })
+    .eq("id", labId);
+  if (error) return fail(error.message);
+
+  revalidatePath(`/admin/labs/${labId}`);
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}
+
+export async function deleteLab(labId: string) {
+  await requireMaster();
+  const supabase = await createClient();
+  const { error } = await supabase.from("labs").delete().eq("id", labId);
+  if (error) return fail(error.message);
+
+  revalidatePath("/admin/labs");
+  revalidatePath("/");
+  return ok();
+}
+
 // ---------------------------------------------------------------------------
 // Stages & deadlines
 // ---------------------------------------------------------------------------

@@ -15,8 +15,9 @@ export default async function LabPipelinePage({
 
   const supabase = await createClient();
 
-  const [{ data: stages }, { data: deadlines }, { data: ideas }, { data: criteriaRows }, { data: users }] =
+  const [{ data: lab }, { data: stages }, { data: deadlines }, { data: ideas }, { data: criteriaRows }, { data: users }] =
     await Promise.all([
+      supabase.from("labs").select("categories").eq("id", labId).single(),
       supabase.from("stages").select("*").eq("lab_id", labId).order("position"),
       supabase.from("stage_deadlines").select("*").eq("lab_id", labId),
       supabase.from("ideas").select("*").eq("lab_id", labId).order("created_at"),
@@ -26,14 +27,25 @@ export default async function LabPipelinePage({
 
   const ideaIds = (ideas ?? []).map((i) => i.id);
 
-  const [{ data: ratingRows }, { data: commentRows }] = await Promise.all([
-    ideaIds.length
-      ? supabase.from("ratings").select("*").in("idea_id", ideaIds)
-      : Promise.resolve({ data: [] }),
-    ideaIds.length
-      ? supabase.from("comments").select("*").in("idea_id", ideaIds).order("created_at")
-      : Promise.resolve({ data: [] }),
-  ]);
+  const [{ data: ratingRows }, { data: commentRows }, { data: favoriteRows }, { data: requirementRows }] =
+    await Promise.all([
+      ideaIds.length
+        ? supabase.from("ratings").select("*").in("idea_id", ideaIds)
+        : Promise.resolve({ data: [] }),
+      ideaIds.length
+        ? supabase.from("comments").select("*").in("idea_id", ideaIds).order("created_at")
+        : Promise.resolve({ data: [] }),
+      ideaIds.length
+        ? supabase.from("idea_favorites").select("*").in("idea_id", ideaIds)
+        : Promise.resolve({ data: [] }),
+      ideaIds.length
+        ? supabase
+            .from("idea_requirements")
+            .select("*")
+            .in("idea_id", ideaIds)
+            .order("created_at")
+        : Promise.resolve({ data: [] }),
+    ]);
 
   const emailById = new Map((users ?? []).map((u) => [u.id, u.email]));
   const deadlineByStage = new Map((deadlines ?? []).map((d) => [d.stage_id, d.deadline_at]));
@@ -78,6 +90,20 @@ export default async function LabPipelinePage({
         body: c.body,
         createdAt: c.created_at,
       })),
+    favoritedByCurrentUser: (favoriteRows ?? []).some(
+      (f) => f.idea_id === idea.id && f.user_id === user.id,
+    ),
+    favoriteCount: (favoriteRows ?? []).filter((f) => f.idea_id === idea.id).length,
+    requirements: (requirementRows ?? [])
+      .filter((r) => r.idea_id === idea.id)
+      .map((r) => ({
+        id: r.id,
+        userId: r.user_id,
+        authorEmail: emailById.get(r.user_id) ?? "unknown",
+        body: r.body,
+        done: r.done,
+        createdAt: r.created_at,
+      })),
   }));
 
   return (
@@ -87,6 +113,8 @@ export default async function LabPipelinePage({
       ideas={ideasWithExtras}
       criteria={criteria}
       currentUserId={user.id}
+      isMaster={user.is_master}
+      categories={lab?.categories ?? []}
     />
   );
 }

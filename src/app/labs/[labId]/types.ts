@@ -30,6 +30,15 @@ export type RatingEntry = {
   score: number;
 };
 
+export type RequirementEntry = {
+  id: string;
+  userId: string;
+  authorEmail: string;
+  body: string;
+  done: boolean;
+  createdAt: string;
+};
+
 export type IdeaWithExtras = {
   id: string;
   labId: string;
@@ -44,4 +53,7 @@ export type IdeaWithExtras = {
   createdAt: string;
   ratings: RatingEntry[];
   comments: CommentWithAuthor[];
+  favoritedByCurrentUser: boolean;
+  favoriteCount: number;
+  requirements: RequirementEntry[];
 };

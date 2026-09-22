@@ -3,7 +3,16 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { updateStageData, upsertRating, addComment } from "@/app/labs/[labId]/actions";
+import { Star } from "lucide-react";
+import {
+  updateStageData,
+  upsertRating,
+  addComment,
+  toggleFavorite,
+  addRequirement,
+  toggleRequirement,
+  removeRequirement,
+} from "@/app/labs/[labId]/actions";
 import type { IdeaWithExtras, CriterionMeta, StageMeta } from "@/app/labs/[labId]/types";
 import type { ChecklistItem, TodoItem } from "@/app/labs/[labId]/stage-data";
 import { DISTRIBUTION_CHANNELS } from "@/app/labs/[labId]/stage-data";
@@ -482,6 +491,130 @@ function CommentsSection({ idea, labId }: { idea: IdeaWithExtras; labId: string 
   );
 }
 
+function FavoriteToggle({
+  ideaId,
+  labId,
+  favorited,
+  count,
+}: {
+  ideaId: string;
+  labId: string;
+  favorited: boolean;
+  count: number;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  function onToggle() {
+    startTransition(async () => {
+      const result = await toggleFavorite(ideaId, labId, favorited);
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={isPending}
+      className="flex items-center gap-1 text-muted-foreground"
+      title={favorited ? "Remove favorite" : "Mark as favorite"}
+    >
+      <Star
+        className={`size-5 ${
+          favorited ? "fill-yellow-400 text-yellow-500" : "fill-none text-muted-foreground"
+        }`}
+      />
+      {count > 0 && <span className="text-sm">{count}</span>}
+    </button>
+  );
+}
+
+// Per-user "what this idea needs to move forward" notes — distinct from the
+// Distribution stage's shared todo list (stage_data JSON), this one is
+// attributed per author and available at every stage.
+function RequirementsSection({
+  idea,
+  labId,
+  currentUserId,
+}: {
+  idea: IdeaWithExtras;
+  labId: string;
+  currentUserId: string;
+}) {
+  const [body, setBody] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function onAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!body.trim()) return;
+    startTransition(async () => {
+      const result = await addRequirement(idea.id, labId, body);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setBody("");
+    });
+  }
+
+  function onToggle(requirementId: string, done: boolean) {
+    startTransition(async () => {
+      const result = await toggleRequirement(requirementId, labId, done);
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  function onRemove(requirementId: string) {
+    startTransition(async () => {
+      const result = await removeRequirement(requirementId, labId);
+      if (!result.ok) toast.error(result.error);
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        {idea.requirements.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nothing added yet.</p>
+        )}
+        {idea.requirements.map((r) => (
+          <div key={r.id} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={r.done}
+              disabled={isPending}
+              onChange={(e) => onToggle(r.id, e.target.checked)}
+            />
+            <span className={r.done ? "flex-1 text-muted-foreground line-through" : "flex-1"}>
+              {r.body}
+            </span>
+            <span className="text-xs text-muted-foreground">{r.authorEmail}</span>
+            {(r.userId === currentUserId) && (
+              <button
+                type="button"
+                onClick={() => onRemove(r.id)}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <form onSubmit={onAdd} className="flex gap-2">
+        <Input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="What does this idea need to move forward?"
+        />
+        <Button type="submit" size="sm" variant="outline" disabled={isPending || !body.trim()}>
+          Add
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 export function IdeaDetailDialog({
   idea,
   open,
@@ -516,7 +649,15 @@ export function IdeaDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{idea.title}</DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <DialogTitle>{idea.title}</DialogTitle>
+            <FavoriteToggle
+              ideaId={idea.id}
+              labId={labId}
+              favorited={idea.favoritedByCurrentUser}
+              count={idea.favoriteCount}
+            />
+          </div>
           <DialogDescription>
             {idea.category && <Badge variant="outline">{idea.category}</Badge>}
             {idea.createdByEmail && <span className="ml-2">Added by {idea.createdByEmail}</span>}
@@ -599,6 +740,12 @@ export function IdeaDetailDialog({
               </div>
             </>
           )}
+
+          <Separator />
+          <div>
+            <p className="mb-2 text-sm font-medium">What this idea needs to move forward</p>
+            <RequirementsSection idea={idea} labId={labId} currentUserId={currentUserId} />
+          </div>
 
           <Separator />
           <div>

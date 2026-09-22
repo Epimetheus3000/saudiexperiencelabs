@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { SignOutButton } from "@/components/sign-out-button";
+import { SquareCorners } from "@/components/square-corners";
 
 export default async function LabLayout({
   children,
@@ -28,7 +29,7 @@ export default async function LabLayout({
 
   return (
     <div
-      className="flex flex-1 flex-col"
+      className="flex flex-1 flex-col pb-3"
       style={
         {
           "--lab-primary": lab.primary_color,
@@ -36,19 +37,20 @@ export default async function LabLayout({
         } as React.CSSProperties
       }
     >
+      <SquareCorners />
       {/* Background stays white per the brand guidelines (only purple, white,
           or imagery are permitted as backgrounds) — per-lab identity comes
           from the accent-colored text/border and the Strip pattern band
           below, not a tinted background fill. */}
-      <header className="flex items-center justify-between bg-background px-6 py-4">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-4 bg-background px-6 py-5">
+        <div className="flex items-center gap-4">
           {lab.logo_url && (
             <Image
               src={lab.logo_url}
               alt={lab.name}
-              width={32}
-              height={32}
-              className="rounded"
+              width={56}
+              height={56}
+              className="size-14 object-contain"
               unoptimized
             />
           )}
@@ -56,47 +58,61 @@ export default async function LabLayout({
             <Link href="/" className="text-xs text-muted-foreground hover:underline">
               ← All labs
             </Link>
-            <h1 className="text-lg font-semibold" style={{ color: "var(--lab-primary)" }}>
+            <h1
+              className="text-3xl font-bold tracking-tight"
+              style={{ color: "var(--lab-primary)" }}
+            >
               {lab.name}
             </h1>
           </div>
+        </div>
+
+        <div className="flex items-center gap-4">
           {lab.partner_name && (
-            <div className="ml-4 flex items-center gap-2 border-l pl-4">
+            <div className="flex items-center gap-3 border border-border bg-muted/40 px-3 py-2">
               {lab.partner_logo_url ? (
                 <Image
                   src={lab.partner_logo_url}
                   alt={lab.partner_name}
-                  width={24}
-                  height={24}
-                  className="rounded"
+                  width={40}
+                  height={40}
+                  className="size-10 object-contain"
                   unoptimized
                 />
               ) : (
                 <div
-                  className="flex h-6 w-6 items-center justify-center rounded border border-dashed text-[8px] text-muted-foreground"
+                  className="flex size-10 items-center justify-center border border-dashed text-xs text-muted-foreground"
                   title="Partner logo pending"
                 >
                   ?
                 </div>
               )}
-              <span className="text-sm text-muted-foreground">with {lab.partner_name}</span>
+              <div className="leading-tight">
+                <p className="text-[0.65rem] tracking-wide text-muted-foreground uppercase">
+                  In partnership with
+                </p>
+                <p className="text-sm font-semibold">{lab.partner_name}</p>
+              </div>
             </div>
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          {user.is_master && (
-            <Link
-              href={`/admin/labs/${lab.id}`}
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Lab settings
-            </Link>
-          )}
-          <SignOutButton />
+
+          <div className="flex items-center gap-2">
+            {user.is_master && (
+              <Link
+                href={`/admin/labs/${lab.id}`}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                Lab settings
+              </Link>
+            )}
+            <SignOutButton />
+          </div>
         </div>
       </header>
-      <div className="pattern-strip h-2 w-full" aria-hidden />
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      {/* Fixed to the viewport, not the page — a persistent brand accent
+          rather than a divider that just scrolls away with the header. */}
+      <div className="pattern-strip fixed inset-x-0 bottom-0 z-10 h-3" aria-hidden />
     </div>
   );
 }

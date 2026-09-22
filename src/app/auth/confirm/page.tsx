@@ -55,7 +55,13 @@ function ConfirmCard() {
           className="mb-2 h-16 w-auto"
           priority
         />
-        <CardDescription>
+        <CardDescription
+          className={
+            linkIncomplete || status === "error"
+              ? undefined
+              : "text-base font-semibold text-foreground"
+          }
+        >
           {linkIncomplete
             ? "This sign-in link is incomplete. Request a new one."
             : status === "error"
@@ -80,7 +86,19 @@ function ConfirmCard() {
 
 export default function AuthConfirmPage() {
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12">
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-12">
+      <Image
+        src="/brand/login-background.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent"
+        aria-hidden
+      />
       <Suspense fallback={null}>
         <ConfirmCard />
       </Suspense>

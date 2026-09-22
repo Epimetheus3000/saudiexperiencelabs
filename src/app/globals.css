@@ -49,6 +49,15 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Applied to <body> (see src/components/square-corners.tsx) while any lab
+   page is mounted. Every rounded-* utility derives from --radius via
+   calc(), so overriding it here squares off cards, dialogs, buttons, and
+   inputs in one place — including dialog content, which Base UI portals to
+   <body> and is therefore outside the lab layout's own DOM subtree. */
+.square-corners {
+  --radius: 0px;
+}
+
 :root {
   /* Visit Saudi brand palette — exact values from the official comprehensive
      guidelines (Color palette, p.20). Never introduce colors outside this set. */

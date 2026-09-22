@@ -155,3 +155,83 @@ export async function addComment(ideaId: string, labId: string, body: string) {
   revalidatePath(`/labs/${labId}`);
   return ok();
 }
+
+export async function toggleFavorite(ideaId: string, labId: string, favorited: boolean) {
+  const user = await getCurrentUser();
+  if (!user) return fail("Not signed in");
+
+  const supabase = await createClient();
+  const { error } = favorited
+    ? await supabase
+        .from("idea_favorites")
+        .delete()
+        .eq("idea_id", ideaId)
+        .eq("user_id", user.id)
+    : await supabase.from("idea_favorites").insert({ idea_id: ideaId, user_id: user.id });
+
+  if (error) return fail(error.message);
+
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}
+
+export async function addRequirement(ideaId: string, labId: string, body: string) {
+  const user = await getCurrentUser();
+  if (!user) return fail("Not signed in");
+
+  const trimmed = body.trim();
+  if (!trimmed) return fail("Requirement can't be empty");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("idea_requirements")
+    .insert({ idea_id: ideaId, user_id: user.id, body: trimmed });
+
+  if (error) return fail(error.message);
+
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}
+
+export async function toggleRequirement(requirementId: string, labId: string, done: boolean) {
+  const user = await getCurrentUser();
+  if (!user) return fail("Not signed in");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("idea_requirements")
+    .update({ done })
+    .eq("id", requirementId);
+
+  if (error) return fail(error.message);
+
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}
+
+export async function removeRequirement(requirementId: string, labId: string) {
+  const user = await getCurrentUser();
+  if (!user) return fail("Not signed in");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("idea_requirements").delete().eq("id", requirementId);
+
+  if (error) return fail(error.message);
+
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}
+
+export async function deleteIdea(ideaId: string, labId: string) {
+  const user = await getCurrentUser();
+  if (!user) return fail("Not signed in");
+  if (!user.is_master) return fail("Only a Master can remove an idea");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("ideas").delete().eq("id", ideaId);
+
+  if (error) return fail(error.message);
+
+  revalidatePath(`/labs/${labId}`);
+  return ok();
+}

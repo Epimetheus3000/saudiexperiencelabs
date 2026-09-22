@@ -2,12 +2,20 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createIdea } from "@/app/labs/[labId]/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -20,11 +28,14 @@ import {
 export function CreateIdeaDialog({
   labId,
   longlistCount,
+  categories,
 }: {
   labId: string;
   longlistCount: number;
+  categories: string[];
 }) {
   const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -33,6 +44,7 @@ export function CreateIdeaDialog({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    formData.set("category", category);
     startTransition(async () => {
       const result = await createIdea(labId, formData);
       if (!result.ok) {
@@ -41,6 +53,7 @@ export function CreateIdeaDialog({
       }
       toast.success("Idea added to Longlist");
       formRef.current?.reset();
+      setCategory("");
       setOpen(false);
       router.refresh();
     });
@@ -49,9 +62,12 @@ export function CreateIdeaDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        render={<Button disabled={atCap} title={atCap ? "Longlist is full (50/50)" : undefined} />}
+        disabled={atCap}
+        title={atCap ? "Longlist is full (50/50)" : undefined}
+        className="flex w-full items-center justify-center gap-1.5 border border-dashed border-[var(--lab-primary)] py-2.5 text-sm font-medium text-[var(--lab-primary)] transition-colors hover:bg-[var(--lab-primary)]/5 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {atCap ? "Longlist full (50/50)" : "New idea"}
+        <Plus className="size-4" />
+        {atCap ? "Longlist full (50/50)" : "Add idea"}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -64,7 +80,26 @@ export function CreateIdeaDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="category">Category</Label>
-            <Input id="category" name="category" />
+            {categories.length > 0 ? (
+              <Select value={category} onValueChange={(value) => setCategory(value ?? "")}>
+                <SelectTrigger id="category" className="w-full">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="description">Description</Label>
