@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createIdea } from "@/app/labs/[labId]/actions";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export function CreateIdeaDialog({
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const atCap = longlistCount >= 50;
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -40,6 +42,7 @@ export function CreateIdeaDialog({
       toast.success("Idea added to Longlist");
       formRef.current?.reset();
       setOpen(false);
+      router.refresh();
     });
   }
 

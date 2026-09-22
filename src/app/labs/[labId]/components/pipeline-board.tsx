@@ -93,6 +93,15 @@ export function PipelineBoard({
   currentUserId: string;
 }) {
   const [localIdeas, setLocalIdeas] = useState(ideas);
+  // Reset during render (not an effect) when the server hands us a fresh
+  // `ideas` array — e.g. after router.refresh() following a create.
+  // Without this, localIdeas (seeded once at mount for optimistic drag
+  // updates) never picks up ideas added or changed elsewhere.
+  const [prevIdeas, setPrevIdeas] = useState(ideas);
+  if (ideas !== prevIdeas) {
+    setPrevIdeas(ideas);
+    setLocalIdeas(ideas);
+  }
   const [activeIdeaId, setActiveIdeaId] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<{
     ideaId: string;
