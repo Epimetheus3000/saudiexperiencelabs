@@ -21,9 +21,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { moveIdea, updateStageData } from "@/app/labs/[labId]/actions";
+import { moveIdea, updateStageData, toggleFavorite } from "@/app/labs/[labId]/actions";
 import type { IdeaWithExtras, StageMeta, CriterionMeta } from "@/app/labs/[labId]/types";
-import type { ConceptData, PrototypingData, DistributionData } from "@/app/labs/[labId]/stage-data";
 import { IdeaCard } from "./idea-card";
 import { CreateIdeaDialog } from "./create-idea-dialog";
 import { ReasoningDialog } from "./reasoning-dialog";
@@ -105,6 +104,7 @@ function ColumnBody({
   currentUserId,
   isMaster,
   categories,
+  onToggleFavorite,
 }: {
   stage: StageMeta;
   ideas: IdeaWithExtras[];
@@ -114,6 +114,7 @@ function ColumnBody({
   currentUserId: string;
   isMaster: boolean;
   categories: string[];
+  onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const isLonglist = stage.name === "Longlist";
@@ -137,6 +138,7 @@ function ColumnBody({
           criteria={criteria}
           currentUserId={currentUserId}
           isMaster={isMaster}
+          onToggleFavorite={onToggleFavorite}
         />
       ))}
       {ideas.length === 0 && !isLonglist && (
@@ -211,28 +213,65 @@ export function PipelineBoard({
     setActiveIdeaId(String(event.active.id));
   }
 
+  // Optimistic: apply the move to local state immediately, before the
+  // network call resolves, and roll back only if the save actually fails.
+  // Waiting for the round-trip first is what made drops feel slow.
   async function commitMove(
     ideaId: string,
     targetStageId: string,
     shortlistPatch?: { reasoning: string; checklist: Record<string, boolean> },
+    extraStagePatch?: { stageKey: "concept" | "prototyping" | "distribution"; values: Record<string, string> },
   ) {
+    const previous = localIdeas;
+    setLocalIdeas((prev) =>
+      prev.map((i) =>
+        i.id === ideaId
+          ? {
+              ...i,
+              stageId: targetStageId,
+              stageData: {
+                ...i.stageData,
+                ...(shortlistPatch && {
+                  shortlist: { ...i.stageData.shortlist, ...shortlistPatch },
+                }),
+                ...(extraStagePatch && {
+                  [extraStagePatch.stageKey]: {
+                    ...i.stageData[extraStagePatch.stageKey],
+                    ...extraStagePatch.values,
+                  },
+                }),
+              },
+            }
+          : i,
+      ),
+    );
+
     const result = await moveIdea(ideaId, labId, targetStageId, shortlistPatch);
-    if (result.ok) {
-      setLocalIdeas((prev) =>
-        prev.map((i) =>
-          i.id === ideaId
-            ? {
-                ...i,
-                stageId: targetStageId,
-                stageData: shortlistPatch
-                  ? { ...i.stageData, shortlist: { ...i.stageData.shortlist, ...shortlistPatch } }
-                  : i.stageData,
-              }
-            : i,
-        ),
-      );
-    }
+    if (!result.ok) setLocalIdeas(previous);
     return result;
+  }
+
+  // Same optimistic pattern for favorites: instant visual feedback, only
+  // reverted if the save fails.
+  function commitToggleFavorite(ideaId: string, currentlyFavorited: boolean) {
+    const previous = localIdeas;
+    setLocalIdeas((prev) =>
+      prev.map((i) =>
+        i.id === ideaId
+          ? {
+              ...i,
+              favoritedByCurrentUser: !currentlyFavorited,
+              favoriteCount: i.favoriteCount + (currentlyFavorited ? -1 : 1),
+            }
+          : i,
+      ),
+    );
+    toggleFavorite(ideaId, labId, currentlyFavorited).then((result) => {
+      if (!result.ok) {
+        setLocalIdeas(previous);
+        toast.error(result.error);
+      }
+    });
   }
 
   function onDragEnd(event: DragEndEvent) {
@@ -321,6 +360,7 @@ export function PipelineBoard({
               currentUserId={currentUserId}
               isMaster={isMaster}
               categories={categories}
+              onToggleFavorite={commitToggleFavorite}
             />
           ))}
         </div>
@@ -362,38 +402,19 @@ export function PipelineBoard({
           fields={pendingGate.fields}
           onCancel={() => setPendingGate(null)}
           onConfirm={async (values) => {
-            const patchResult = await updateStageData(
-              pendingGate.ideaId,
-              labId,
-              pendingGate.stageKey,
-              values,
-            );
+            // Both calls fire together — commitMove applies the move (plus
+            // these field values) to local state immediately, so the board
+            // updates instantly regardless of which network call lands
+            // first.
+            const [patchResult, moveResult] = await Promise.all([
+              updateStageData(pendingGate.ideaId, labId, pendingGate.stageKey, values),
+              commitMove(pendingGate.ideaId, pendingGate.targetStageId, undefined, {
+                stageKey: pendingGate.stageKey,
+                values,
+              }),
+            ]);
             if (!patchResult.ok) return patchResult;
-
-            const moveResult = await commitMove(pendingGate.ideaId, pendingGate.targetStageId);
-            if (moveResult.ok) {
-              setLocalIdeas((prev) =>
-                prev.map((i) =>
-                  i.id === pendingGate.ideaId
-                    ? {
-                        ...i,
-                        stageData: {
-                          ...i.stageData,
-                          [pendingGate.stageKey]: {
-                            ...(i.stageData[pendingGate.stageKey] as
-                              | ConceptData
-                              | PrototypingData
-                              | DistributionData
-                              | undefined),
-                            ...values,
-                          },
-                        },
-                      }
-                    : i,
-                ),
-              );
-              setPendingGate(null);
-            }
+            if (moveResult.ok) setPendingGate(null);
             return moveResult;
           }}
         />

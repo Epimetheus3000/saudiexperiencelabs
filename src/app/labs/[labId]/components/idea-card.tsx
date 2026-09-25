@@ -6,7 +6,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { toggleFavorite, deleteIdea } from "@/app/labs/[labId]/actions";
+import { deleteIdea } from "@/app/labs/[labId]/actions";
 import type { IdeaWithExtras, CriterionMeta, StageMeta } from "@/app/labs/[labId]/types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ export function IdeaCard({
   criteria,
   currentUserId,
   isMaster,
+  onToggleFavorite,
 }: {
   idea: IdeaWithExtras;
   labId: string;
@@ -37,6 +38,7 @@ export function IdeaCard({
   criteria: CriterionMeta[];
   currentUserId: string;
   isMaster: boolean;
+  onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -49,16 +51,9 @@ export function IdeaCard({
     ? { transform: CSS.Translate.toString(transform), zIndex: isDragging ? 10 : undefined }
     : undefined;
 
-  function onToggleFavorite(e: React.MouseEvent) {
+  function handleToggleFavorite(e: React.MouseEvent) {
     e.stopPropagation();
-    startTransition(async () => {
-      const result = await toggleFavorite(idea.id, labId, idea.favoritedByCurrentUser);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
+    onToggleFavorite(idea.id, idea.favoritedByCurrentUser);
   }
 
   function onDelete() {
@@ -105,8 +100,7 @@ export function IdeaCard({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onToggleFavorite}
-                disabled={isPending}
+                onClick={handleToggleFavorite}
                 className="flex items-center gap-1 text-muted-foreground"
                 title={idea.favoritedByCurrentUser ? "Remove favorite" : "Mark as favorite"}
               >
@@ -125,7 +119,8 @@ export function IdeaCard({
                 <AlertDialog>
                   <AlertDialogTrigger
                     onClick={(e) => e.stopPropagation()}
-                    className="text-muted-foreground hover:text-destructive"
+                    disabled={isPending}
+                    className="text-muted-foreground hover:text-destructive disabled:opacity-50"
                     title="Remove idea"
                   >
                     <Trash2 className="size-3.5" />
@@ -158,6 +153,7 @@ export function IdeaCard({
         criteria={criteria}
         currentUserId={currentUserId}
         labId={labId}
+        onToggleFavorite={onToggleFavorite}
       />
     </>
   );

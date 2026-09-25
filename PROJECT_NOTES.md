@@ -78,22 +78,33 @@ own.
   are tracked but non-blocking** — items are checkable and saved, but never
   prevent a card moving to the next stage. This was an explicit product
   decision (asked, confirmed) over making them hard gates.
-- Concept, Prototyping, and Distribution each require one key field
-  (`story`, `mvpDescription`, `requirements` respectively) before an idea
-  can move *into* that stage — the same "fill this in before the move
-  completes" pattern as Shortlist's reasoning gate, implemented client-side
-  in `pipeline-board.tsx` via `StageGateDialog`. Go-Live is deliberately
-  excluded, per the non-blocking-checklist decision above.
+- Concept requires `story`, Distribution requires `requirements`, and
+  Prototyping requires both `mvpDescription` and `audienceTested` ("Who are
+  we testing with?") before an idea can move *into* that stage — the same
+  "fill this in before the move completes" pattern as Shortlist's reasoning
+  gate, implemented client-side in `pipeline-board.tsx` via
+  `StageGateDialog` (`STAGE_GATE_FIELDS`, one or more fields per stage). Go-
+  Live is deliberately excluded, per the non-blocking-checklist decision
+  above.
 
 **Gotcha: server actions here rely on `revalidatePath`, which is not
 enough on its own.** It invalidates the Next.js cache server-side, but an
 already-mounted client component's props won't refetch until something
-calls `router.refresh()` from the browser. Every mutation in
-`src/app/labs/[labId]/components/` (favorites, comments, ratings, stage
-data, requirements, idea creation) must call `router.refresh()` after a
-successful action, or the UI silently goes stale until a manual reload.
-This bit both "new idea doesn't appear" and "favorite star doesn't update"
-in practice — if a new mutation is added here, don't repeat it.
+calls `router.refresh()` from the browser. Comments, ratings, checklists,
+stage-data forms, and requirements in `idea-detail-dialog.tsx` all still
+call `router.refresh()` after a successful action for this reason — skip
+it there and the UI silently goes stale until a manual reload.
+
+**Drag-and-drop moves and favorite toggles are optimistic, not
+`router.refresh()`-based** — they update `localIdeas` in `PipelineBoard`
+immediately (before the network call resolves) and only revert on
+failure. This was a deliberate change: waiting for the round-trip (or, for
+favorites, a full-page `router.refresh()`) made both feel slow. If a new
+interaction on the board needs to feel instant, follow this pattern
+(update local state first, persist in the background, roll back on
+error) rather than the refresh-after-await pattern used elsewhere in the
+dialog — the two are not interchangeable, and mixing them back in for
+drag/favorites is the regression to avoid.
 
 ## Brand system — read this before touching anything visual
 

@@ -9,7 +9,6 @@ import {
   updateStageData,
   upsertRating,
   addComment,
-  toggleFavorite,
   addRequirement,
   toggleRequirement,
   removeRequirement,
@@ -525,34 +524,19 @@ function CommentsSection({ idea, labId }: { idea: IdeaWithExtras; labId: string 
 
 function FavoriteToggle({
   ideaId,
-  labId,
   favorited,
   count,
+  onToggleFavorite,
 }: {
   ideaId: string;
-  labId: string;
   favorited: boolean;
   count: number;
+  onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-
-  function onToggle() {
-    startTransition(async () => {
-      const result = await toggleFavorite(ideaId, labId, favorited);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
-  }
-
   return (
     <button
       type="button"
-      onClick={onToggle}
-      disabled={isPending}
+      onClick={() => onToggleFavorite(ideaId, favorited)}
       className="flex items-center gap-1 text-muted-foreground"
       title={favorited ? "Remove favorite" : "Mark as favorite"}
     >
@@ -670,6 +654,7 @@ export function IdeaDetailDialog({
   criteria,
   currentUserId,
   labId,
+  onToggleFavorite,
 }: {
   idea: IdeaWithExtras;
   open: boolean;
@@ -678,6 +663,7 @@ export function IdeaDetailDialog({
   criteria: CriterionMeta[];
   currentUserId: string;
   labId: string;
+  onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
 }) {
   const currentStage = stages.find((s) => s.id === idea.stageId);
   const currentPosition = currentStage?.position ?? 0;
@@ -700,9 +686,9 @@ export function IdeaDetailDialog({
             <DialogTitle>{idea.title}</DialogTitle>
             <FavoriteToggle
               ideaId={idea.id}
-              labId={labId}
               favorited={idea.favoritedByCurrentUser}
               count={idea.favoriteCount}
+              onToggleFavorite={onToggleFavorite}
             />
           </div>
           <DialogDescription>
