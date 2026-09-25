@@ -7,8 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body-brand);
   --font-heading: var(--font-heading-brand);
   --font-body-brand: var(--font-body-brand);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -83,11 +82,12 @@
   --brand-accent-6: var(--brand-green);
   --brand-accent-7: var(--brand-purple-vibrant);
 
-  /* Typeface slots — real Saudi Serif / Saudi Sans font files to be supplied
-     separately. Do not substitute a different real typeface here; the sans
-     fallback keeps things legible until @font-face is added. */
-  --font-heading-brand: "Saudi Serif", var(--font-sans);
-  --font-body-brand: "Saudi Sans", var(--font-sans);
+  /* Typeface slots — standing in for "Saudi Serif" / "Saudi Sans" from the
+     brand guidelines until the user supplies those proprietary font files
+     (see PROJECT_NOTES.md). Fraunces for display/headings, Open Sans for
+     body copy, both loaded via next/font/google in src/app/layout.tsx. */
+  --font-heading-brand: var(--font-fraunces), ui-serif, serif;
+  --font-body-brand: var(--font-open-sans), ui-sans-serif, sans-serif;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

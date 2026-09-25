@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { updateStageData } from "@/app/labs/[labId]/actions";
@@ -25,6 +26,7 @@ export function VisualsUploader({
   const [isUploading, setIsUploading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +84,11 @@ export function VisualsUploader({
       visuals: [...visuals, newVisual],
     });
     setIsUploading(false);
-    if (!result.ok) toast.error(result.error);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    router.refresh();
   }
 
   function onRemove(visual: Visual) {
@@ -92,7 +98,11 @@ export function VisualsUploader({
       const result = await updateStageData(ideaId, labId, "concept", {
         visuals: visuals.filter((v) => v.path !== visual.path),
       });
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 

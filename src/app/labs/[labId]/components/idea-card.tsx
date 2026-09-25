@@ -53,7 +53,11 @@ export function IdeaCard({
     e.stopPropagation();
     startTransition(async () => {
       const result = await toggleFavorite(idea.id, labId, idea.favoritedByCurrentUser);
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 

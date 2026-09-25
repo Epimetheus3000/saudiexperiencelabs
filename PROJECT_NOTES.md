@@ -71,6 +71,22 @@ own.
   are tracked but non-blocking** — items are checkable and saved, but never
   prevent a card moving to the next stage. This was an explicit product
   decision (asked, confirmed) over making them hard gates.
+- Concept, Prototyping, and Distribution each require one key field
+  (`story`, `mvpDescription`, `requirements` respectively) before an idea
+  can move *into* that stage — the same "fill this in before the move
+  completes" pattern as Shortlist's reasoning gate, implemented client-side
+  in `pipeline-board.tsx` via `StageGateDialog`. Go-Live is deliberately
+  excluded, per the non-blocking-checklist decision above.
+
+**Gotcha: server actions here rely on `revalidatePath`, which is not
+enough on its own.** It invalidates the Next.js cache server-side, but an
+already-mounted client component's props won't refetch until something
+calls `router.refresh()` from the browser. Every mutation in
+`src/app/labs/[labId]/components/` (favorites, comments, ratings, stage
+data, requirements, idea creation) must call `router.refresh()` after a
+successful action, or the UI silently goes stale until a manual reload.
+This bit both "new idea doesn't appear" and "favorite star doesn't update"
+in practice — if a new mutation is added here, don't repeat it.
 
 ## Brand system — read this before touching anything visual
 
@@ -142,12 +158,16 @@ one "bigger brand moment" screen. Don't mix property styles on one screen.
   the guidelines is 90px wide, with clear space around it of roughly 1/5 of
   the wordmark's width.
 
-**Typography**: headline font is "Saudi Serif," body is "Saudi Sans" — both
-proprietary, files not yet provided. CSS variables `--font-heading-brand`
-and `--font-body-brand` in `globals.css` are wired up with a generic
-sans-serif fallback and applied to `h1`/`h2`/`h3`. When the real font files
-arrive: add `@font-face` rules and point these variables at them — no other
-code should need to change.
+**Typography**: the guidelines call for "Saudi Serif" (headline) / "Saudi
+Sans" (body), both proprietary and not provided. Per explicit user
+instruction, the site now uses real Google Fonts as the working choice:
+**Fraunces** for display/headings, **Open Sans** (400 + 700) for body copy,
+loaded via `next/font/google` in `src/app/layout.tsx` and exposed as
+`--font-heading-brand` / `--font-body-brand` in `globals.css`. `font-sans`
+(the site's default body font) and `font-heading` (used by `CardTitle`,
+`DialogTitle`, `AlertDialogTitle`, and `h1`–`h3`) both resolve from these. If
+the real Saudi Serif/Sans files arrive later, swap the two `next/font`
+imports and variables — no component code should need to change.
 
 **Partner logos**: explicitly left as placeholders (a dashed "?" box shown
 when `partner_name` is set but `partner_logo_url` isn't) — the user is

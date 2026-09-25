@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Star } from "lucide-react";
@@ -67,6 +68,7 @@ function CriterionRating({
   ratings: IdeaWithExtras["ratings"];
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const myRating = ratings.find(
     (r) => r.criterionId === criterion.id && r.userId === currentUserId,
   );
@@ -77,7 +79,11 @@ function CriterionRating({
   function onSelect(score: number) {
     startTransition(async () => {
       const result = await upsertRating(ideaId, labId, criterion.id, score);
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -119,13 +125,18 @@ function ChecklistSection({
   checked: Record<string, boolean>;
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function onToggle(key: string, value: boolean) {
     startTransition(async () => {
       const result = await updateStageData(ideaId, labId, stageKey, {
         checklist: { ...checked, [key]: value },
       });
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -151,6 +162,7 @@ function ChecklistSection({
 function ShortlistSection({ idea, labId, stage }: { idea: IdeaWithExtras; labId: string; stage: StageMeta }) {
   const [reasoning, setReasoning] = useState(idea.stageData.shortlist?.reasoning ?? "");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function onSave() {
     startTransition(async () => {
@@ -160,6 +172,7 @@ function ShortlistSection({ idea, labId, stage }: { idea: IdeaWithExtras; labId:
         return;
       }
       toast.success("Reasoning saved");
+      router.refresh();
     });
   }
 
@@ -195,6 +208,7 @@ function ConceptSection({
   currentUserId: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const concept = idea.stageData.concept ?? {};
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -213,6 +227,7 @@ function ConceptSection({
         return;
       }
       toast.success("Concept saved");
+      router.refresh();
     });
   }
 
@@ -281,6 +296,7 @@ function ConceptSection({
 
 function PrototypingSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const prototyping = idea.stageData.prototyping ?? {};
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -298,6 +314,7 @@ function PrototypingSection({ idea, labId }: { idea: IdeaWithExtras; labId: stri
         return;
       }
       toast.success("Prototyping details saved");
+      router.refresh();
     });
   }
 
@@ -338,13 +355,18 @@ function PrototypingSection({ idea, labId }: { idea: IdeaWithExtras; labId: stri
 
 function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const distribution = idea.stageData.distribution ?? {};
   const [todoText, setTodoText] = useState("");
 
   function saveChannels(channels: string[]) {
     startTransition(async () => {
       const result = await updateStageData(idea.id, labId, "distribution", { channels });
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -360,14 +382,22 @@ function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: str
       const result = await updateStageData(idea.id, labId, "distribution", {
         requirements: formData.get("requirements") || null,
       });
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
   function saveTodo(todo: TodoItem[]) {
     startTransition(async () => {
       const result = await updateStageData(idea.id, labId, "distribution", { todo });
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -445,6 +475,7 @@ function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: str
 function CommentsSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
   const [body, setBody] = useState("");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -456,6 +487,7 @@ function CommentsSection({ idea, labId }: { idea: IdeaWithExtras; labId: string 
         return;
       }
       setBody("");
+      router.refresh();
     });
   }
 
@@ -503,11 +535,16 @@ function FavoriteToggle({
   count: number;
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function onToggle() {
     startTransition(async () => {
       const result = await toggleFavorite(ideaId, labId, favorited);
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -543,6 +580,7 @@ function RequirementsSection({
 }) {
   const [body, setBody] = useState("");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function onAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -554,20 +592,29 @@ function RequirementsSection({
         return;
       }
       setBody("");
+      router.refresh();
     });
   }
 
   function onToggle(requirementId: string, done: boolean) {
     startTransition(async () => {
       const result = await toggleRequirement(requirementId, labId, done);
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
   function onRemove(requirementId: string) {
     startTransition(async () => {
       const result = await removeRequirement(requirementId, labId);
-      if (!result.ok) toast.error(result.error);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 

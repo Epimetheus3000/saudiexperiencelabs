@@ -69,29 +69,32 @@ export default async function LabLayout({
 
         <div className="flex items-center gap-4">
           {lab.partner_name && (
-            <div className="flex items-center gap-3 border border-border bg-muted/40 px-3 py-2">
+            <div
+              className="flex items-center gap-4 border-l-4 bg-muted/40 py-2 pr-4 pl-4"
+              style={{ borderLeftColor: "var(--lab-primary)" }}
+            >
               {lab.partner_logo_url ? (
                 <Image
                   src={lab.partner_logo_url}
                   alt={lab.partner_name}
-                  width={40}
-                  height={40}
-                  className="size-10 object-contain"
+                  width={64}
+                  height={64}
+                  className="size-16 object-contain"
                   unoptimized
                 />
               ) : (
                 <div
-                  className="flex size-10 items-center justify-center border border-dashed text-xs text-muted-foreground"
+                  className="flex size-16 items-center justify-center border border-dashed text-base text-muted-foreground"
                   title="Partner logo pending"
                 >
                   ?
                 </div>
               )}
               <div className="leading-tight">
-                <p className="text-[0.65rem] tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs tracking-wide text-muted-foreground uppercase">
                   In partnership with
                 </p>
-                <p className="text-sm font-semibold">{lab.partner_name}</p>
+                <p className="text-xl font-bold">{lab.partner_name}</p>
               </div>
             </div>
           )}

@@ -59,7 +59,43 @@ const STAGE_GATE_FIELD: Record<
   Distribution: { stageKey: "distribution", field: "requirements", label: "Requirements" },
 };
 
-function Column({
+// The header sits in shared grid row 1 across every column (see
+// PipelineBoard's render) so CSS Grid's native row-track sizing gives every
+// column the same header height — driven by whichever column's title +
+// description + countdown is tallest — without guessing a fixed pixel value.
+function ColumnHeader({ stage, count }: { stage: StageMeta; count: number }) {
+  const Icon = STAGE_ICONS[stage.name];
+  const isLonglist = stage.name === "Longlist";
+
+  return (
+    <div
+      className="flex w-72 shrink-0 flex-col justify-center gap-1 border px-3 py-3 text-white"
+      style={{ backgroundColor: "var(--lab-primary)" }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="size-5" />}
+          <h3 className="text-base font-bold tracking-tight">{stage.name}</h3>
+        </div>
+        <Badge className="bg-white text-[var(--lab-primary)]">
+          {isLonglist ? `${count}/50` : count}
+        </Badge>
+      </div>
+      {stage.description && <p className="text-xs text-white/80">{stage.description}</p>}
+      {stage.deadlineAt && (
+        <p className="text-xs text-white/80">
+          <Countdown deadlineAt={stage.deadlineAt} />
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ColumnBand() {
+  return <div className="pattern-strip h-1.5 w-72 shrink-0" aria-hidden />;
+}
+
+function ColumnBody({
   stage,
   ideas,
   labId,
@@ -79,58 +115,32 @@ function Column({
   categories: string[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
-  const Icon = STAGE_ICONS[stage.name];
   const isLonglist = stage.name === "Longlist";
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex w-72 shrink-0 flex-col border bg-muted/30 ${
+      className={`flex w-72 min-h-0 shrink-0 flex-col gap-2 overflow-y-auto border bg-muted/30 p-2 ${
         isOver ? "ring-2 ring-[var(--lab-primary)]" : ""
       }`}
     >
-      <div className="px-3 pt-3 pb-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {Icon && <Icon className="size-5" style={{ color: "var(--lab-primary)" }} />}
-            <h3 className="text-base font-bold tracking-tight">{stage.name}</h3>
-          </div>
-          <Badge
-            className="text-white"
-            style={{ backgroundColor: "var(--lab-primary)" }}
-          >
-            {isLonglist ? `${ideas.length}/50` : ideas.length}
-          </Badge>
-        </div>
-        {stage.description && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{stage.description}</p>
-        )}
-        {stage.deadlineAt && (
-          <p className="mt-1 text-xs">
-            <Countdown deadlineAt={stage.deadlineAt} />
-          </p>
-        )}
-      </div>
-      <div className="pattern-strip h-1.5 w-full" aria-hidden />
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
-        {isLonglist && (
-          <CreateIdeaDialog labId={labId} longlistCount={ideas.length} categories={categories} />
-        )}
-        {ideas.map((idea) => (
-          <IdeaCard
-            key={idea.id}
-            idea={idea}
-            labId={labId}
-            stages={stages}
-            criteria={criteria}
-            currentUserId={currentUserId}
-            isMaster={isMaster}
-          />
-        ))}
-        {ideas.length === 0 && !isLonglist && (
-          <p className="px-1 py-4 text-center text-xs text-muted-foreground">No ideas here</p>
-        )}
-      </div>
+      {isLonglist && (
+        <CreateIdeaDialog labId={labId} longlistCount={ideas.length} categories={categories} />
+      )}
+      {ideas.map((idea) => (
+        <IdeaCard
+          key={idea.id}
+          idea={idea}
+          labId={labId}
+          stages={stages}
+          criteria={criteria}
+          currentUserId={currentUserId}
+          isMaster={isMaster}
+        />
+      ))}
+      {ideas.length === 0 && !isLonglist && (
+        <p className="px-1 py-4 text-center text-xs text-muted-foreground">No ideas here</p>
+      )}
     </div>
   );
 }
@@ -278,9 +288,27 @@ export function PipelineBoard({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div className="flex flex-1 gap-4 overflow-x-auto p-4">
+        <div
+          className="grid flex-1 gap-x-4 gap-y-1.5 overflow-x-auto p-4"
+          style={{
+            gridTemplateColumns: `repeat(${stages.length}, 18rem)`,
+            gridTemplateRows: "auto auto minmax(0, 1fr)",
+          }}
+        >
+          {/* Same grid row for every column, so its height is set by
+              whichever column's header content is tallest. */}
           {stages.map((stage) => (
-            <Column
+            <ColumnHeader
+              key={stage.id}
+              stage={stage}
+              count={ideasByStage.get(stage.id)?.length ?? 0}
+            />
+          ))}
+          {stages.map((stage) => (
+            <ColumnBand key={stage.id} />
+          ))}
+          {stages.map((stage) => (
+            <ColumnBody
               key={stage.id}
               stage={stage}
               ideas={ideasByStage.get(stage.id) ?? []}
