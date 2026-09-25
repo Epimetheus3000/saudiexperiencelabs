@@ -6,6 +6,17 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { SignOutButton } from "@/components/sign-out-button";
 import { SquareCorners } from "@/components/square-corners";
 
+// Lab names are free-text set by admins (some stored ALL CAPS) — normalize
+// to Title Case for display here rather than relying on CSS text-transform,
+// which can't turn "ALL CAPS" into "All Caps" on its own.
+function toTitleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split(" ")
+    .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(" ");
+}
+
 export default async function LabLayout({
   children,
   params,
@@ -38,11 +49,29 @@ export default async function LabLayout({
       }
     >
       <SquareCorners />
+      {/* Saudi Experience Labs brand mark, locked to the top-left corner of
+          the viewport regardless of scroll — distinct from the per-lab
+          identity (accent color, lab logo) that follows in the header. */}
+      <div className="fixed top-0 left-0 z-20 flex h-24 w-28 items-center justify-center overflow-hidden">
+        <div
+          className="pattern-strip absolute inset-0"
+          style={{ "--strip-color": "var(--brand-purple-dark)" } as React.CSSProperties}
+          aria-hidden
+        />
+        <Image
+          src="/brand/saudi-experience-labs-logo.png"
+          alt="Saudi Experience Labs"
+          width={747}
+          height={243}
+          className="relative z-10 h-9 w-auto"
+          priority
+        />
+      </div>
       {/* Background stays white per the brand guidelines (only purple, white,
           or imagery are permitted as backgrounds) — per-lab identity comes
           from the accent-colored text/border and the Strip pattern band
           below, not a tinted background fill. */}
-      <header className="flex items-center justify-between gap-4 bg-background px-6 py-5">
+      <header className="flex items-center justify-between gap-4 bg-background py-5 pr-6 pl-36">
         <div className="flex items-center gap-4">
           {lab.logo_url && (
             <Image
@@ -58,12 +87,7 @@ export default async function LabLayout({
             <Link href="/" className="text-xs text-muted-foreground hover:underline">
               ← All labs
             </Link>
-            <h1
-              className="text-3xl font-bold tracking-tight"
-              style={{ color: "var(--lab-primary)" }}
-            >
-              {lab.name}
-            </h1>
+            <h1 className="text-lg font-semibold text-gray-600">{toTitleCase(lab.name)}</h1>
           </div>
         </div>
 
@@ -100,6 +124,12 @@ export default async function LabLayout({
           )}
 
           <div className="flex items-center gap-2">
+            <a
+              href={`/labs/${lab.id}/export`}
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              Export to Excel
+            </a>
             {user.is_master && (
               <Link
                 href={`/admin/labs/${lab.id}`}

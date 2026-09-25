@@ -26,12 +26,19 @@ automatically via Vercel on every push to `main`.
   (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`) are set in both `.env.local` (gitignored) and
   Vercel's project settings.
-- Two schema migrations in `supabase/migrations/`: `0001_init.sql` (auth
-  sync, RLS, 3-stage pipeline) and `0002_six_stage_pipeline.sql` (6 stages,
-  `stage_data` JSONB, partner branding columns, storage bucket). Both are
-  applied to production already — run future migrations the same way, by
-  pasting into the Supabase SQL Editor (no CLI/Docker access on this dev
-  machine, so no `supabase db push` workflow is set up).
+- Three schema migrations in `supabase/migrations/`: `0001_init.sql` (auth
+  sync, RLS, 3-stage pipeline), `0002_six_stage_pipeline.sql` (6 stages,
+  `stage_data` JSONB, partner branding columns, storage bucket), and
+  `0003_favorites_requirements_categories.sql` (idea favorites, per-user
+  requirements, admin-managed lab categories). All applied to production
+  already — run future migrations the same way, by pasting into the
+  Supabase SQL Editor (no CLI/Docker access on this dev machine, so no
+  `supabase db push` workflow is set up).
+- `exceljs` generates the Excel export at `GET /labs/[labId]/export`
+  (`src/app/labs/[labId]/export/route.ts`) — one worksheet per stage, same
+  column layout on every sheet, one row per idea including every stage's
+  fields, comments, per-user requirements, and rating averages. Access is
+  RLS-scoped like everything else (no special export permission).
 
 ## Permissions model
 

@@ -14,41 +14,49 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+export type GateField = { key: string; label: string; initialValue?: string };
+
 // A lighter-weight sibling to ReasoningDialog: same "fill this in before the
-// move completes" pattern, generalized to one required field per stage
-// instead of Shortlist's reasoning + optional checklist. Go-Live is
+// move completes" pattern, generalized to one or more required fields per
+// stage instead of Shortlist's reasoning + optional checklist. Go-Live is
 // deliberately excluded — its checklist stays non-blocking per the earlier
 // product decision recorded in PROJECT_NOTES.
 export function StageGateDialog({
   open,
   ideaTitle,
   targetStageName,
-  fieldLabel,
+  fields,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   ideaTitle: string;
   targetStageName: string;
-  fieldLabel: string;
+  fields: GateField[];
   onCancel: () => void;
-  onConfirm: (value: string) => Promise<{ ok: boolean; error?: string }>;
+  onConfirm: (values: Record<string, string>) => Promise<{ ok: boolean; error?: string }>;
 }) {
-  const [value, setValue] = useState("");
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map((f) => [f.key, f.initialValue ?? ""])),
+  );
   const [isPending, startTransition] = useTransition();
 
   function handleConfirm() {
-    if (!value.trim()) {
-      toast.error(`${fieldLabel} is required to move this idea`);
+    const missing = fields.find((f) => !values[f.key]?.trim());
+    if (missing) {
+      toast.error(`${missing.label} is required to move this idea`);
       return;
     }
     startTransition(async () => {
-      const result = await onConfirm(value.trim());
+      const trimmed = Object.fromEntries(
+        Object.entries(values).map(([k, v]) => [k, v.trim()]),
+      );
+      const result = await onConfirm(trimmed);
       if (!result.ok) {
         toast.error(result.error ?? "Something went wrong");
         return;
       }
-      setValue("");
+      setValues(Object.fromEntries(fields.map((f) => [f.key, ""])));
     });
   }
 
@@ -60,18 +68,23 @@ export function StageGateDialog({
             Move &quot;{ideaTitle}&quot; to {targetStageName}
           </DialogTitle>
           <DialogDescription>
-            {fieldLabel} is required before this idea can move into {targetStageName}.
+            {fields.length === 1 ? fields[0].label : "The details below"} are required before this
+            idea can move into {targetStageName}.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="gate-field">{fieldLabel}</Label>
-          <Textarea
-            id="gate-field"
-            rows={4}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            autoFocus
-          />
+        <div className="space-y-3">
+          {fields.map((f, i) => (
+            <div key={f.key} className="space-y-1.5">
+              <Label htmlFor={`gate-field-${f.key}`}>{f.label}</Label>
+              <Textarea
+                id={`gate-field-${f.key}`}
+                rows={3}
+                value={values[f.key] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                autoFocus={i === 0}
+              />
+            </div>
+          ))}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onCancel} disabled={isPending}>

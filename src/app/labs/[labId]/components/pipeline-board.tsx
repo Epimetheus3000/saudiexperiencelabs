@@ -27,7 +27,7 @@ import type { ConceptData, PrototypingData, DistributionData } from "@/app/labs/
 import { IdeaCard } from "./idea-card";
 import { CreateIdeaDialog } from "./create-idea-dialog";
 import { ReasoningDialog } from "./reasoning-dialog";
-import { StageGateDialog } from "./stage-gate-dialog";
+import { StageGateDialog, type GateField } from "./stage-gate-dialog";
 import { Countdown } from "@/components/countdown";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,19 +44,18 @@ const STAGE_ICONS: Record<string, LucideIcon> = {
 // Additional-details gate for the stages beyond Shortlist (which already has
 // its own reasoning + checklist dialog). Go-Live is deliberately excluded —
 // its checklist stays non-blocking per the earlier product decision recorded
-// in PROJECT_NOTES. One required field per stage, mirroring how Shortlist
-// only requires "reasoning" rather than every field in that section.
-const STAGE_GATE_FIELD: Record<
+// in PROJECT_NOTES. One or more required fields per stage, mirroring how
+// Shortlist requires "reasoning" rather than every field in that section.
+const STAGE_GATE_FIELDS: Record<
   string,
-  { stageKey: "concept" | "prototyping" | "distribution"; field: string; label: string }
+  { stageKey: "concept" | "prototyping" | "distribution"; field: string; label: string }[]
 > = {
-  Concept: { stageKey: "concept", field: "story", label: "Story" },
-  "Prototyping / Field-Testing": {
-    stageKey: "prototyping",
-    field: "mvpDescription",
-    label: "MVP description",
-  },
-  Distribution: { stageKey: "distribution", field: "requirements", label: "Requirements" },
+  Concept: [{ stageKey: "concept", field: "story", label: "Story" }],
+  "Prototyping / Field-Testing": [
+    { stageKey: "prototyping", field: "mvpDescription", label: "MVP description" },
+    { stageKey: "prototyping", field: "audienceTested", label: "Who are we testing with?" },
+  ],
+  Distribution: [{ stageKey: "distribution", field: "requirements", label: "Requirements" }],
 };
 
 // The header sits in shared grid row 1 across every column (see
@@ -69,7 +68,7 @@ function ColumnHeader({ stage, count }: { stage: StageMeta; count: number }) {
 
   return (
     <div
-      className="flex w-72 shrink-0 flex-col justify-center gap-1 border px-3 py-3 text-white"
+      className="flex w-72 shrink-0 flex-col items-stretch justify-start border px-3 py-3 text-white"
       style={{ backgroundColor: "var(--lab-primary)" }}
     >
       <div className="flex items-center justify-between">
@@ -81,12 +80,14 @@ function ColumnHeader({ stage, count }: { stage: StageMeta; count: number }) {
           {isLonglist ? `${count}/50` : count}
         </Badge>
       </div>
-      {stage.description && <p className="text-xs text-white/80">{stage.description}</p>}
-      {stage.deadlineAt && (
-        <p className="text-xs text-white/80">
-          <Countdown deadlineAt={stage.deadlineAt} />
-        </p>
-      )}
+      <div className="mt-2">
+        {stage.description && <p className="text-xs text-white/80">{stage.description}</p>}
+        {stage.deadlineAt && (
+          <p className="mt-1 text-xs text-white/80">
+            <Countdown deadlineAt={stage.deadlineAt} />
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -185,8 +186,7 @@ export function PipelineBoard({
     targetStageId: string;
     targetStageName: string;
     stageKey: "concept" | "prototyping" | "distribution";
-    field: string;
-    fieldLabel: string;
+    fields: GateField[];
   } | null>(null);
 
   const sensors = useSensors(
@@ -261,20 +261,23 @@ export function PipelineBoard({
       return;
     }
 
-    const gate = STAGE_GATE_FIELD[targetStage.name];
-    if (gate) {
-      const currentValue = (idea.stageData[gate.stageKey] as Record<string, unknown> | undefined)?.[
-        gate.field
-      ];
-      if (!currentValue) {
+    const gateFields = STAGE_GATE_FIELDS[targetStage.name];
+    if (gateFields) {
+      const stageKey = gateFields[0].stageKey;
+      const currentData = idea.stageData[stageKey] as Record<string, unknown> | undefined;
+      const hasAllFields = gateFields.every((f) => currentData?.[f.field]);
+      if (!hasAllFields) {
         setPendingGate({
           ideaId,
           ideaTitle: idea.title,
           targetStageId,
           targetStageName: targetStage.name,
-          stageKey: gate.stageKey,
-          field: gate.field,
-          fieldLabel: gate.label,
+          stageKey,
+          fields: gateFields.map((f) => ({
+            key: f.field,
+            label: f.label,
+            initialValue: (currentData?.[f.field] as string | undefined) ?? "",
+          })),
         });
         return;
       }
@@ -356,12 +359,15 @@ export function PipelineBoard({
           open
           ideaTitle={pendingGate.ideaTitle}
           targetStageName={pendingGate.targetStageName}
-          fieldLabel={pendingGate.fieldLabel}
+          fields={pendingGate.fields}
           onCancel={() => setPendingGate(null)}
-          onConfirm={async (value) => {
-            const patchResult = await updateStageData(pendingGate.ideaId, labId, pendingGate.stageKey, {
-              [pendingGate.field]: value,
-            });
+          onConfirm={async (values) => {
+            const patchResult = await updateStageData(
+              pendingGate.ideaId,
+              labId,
+              pendingGate.stageKey,
+              values,
+            );
             if (!patchResult.ok) return patchResult;
 
             const moveResult = await commitMove(pendingGate.ideaId, pendingGate.targetStageId);
@@ -379,7 +385,7 @@ export function PipelineBoard({
                               | PrototypingData
                               | DistributionData
                               | undefined),
-                            [pendingGate.field]: value,
+                            ...values,
                           },
                         },
                       }
