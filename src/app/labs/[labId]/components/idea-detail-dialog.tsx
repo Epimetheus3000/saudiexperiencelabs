@@ -30,6 +30,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type IdeaUpdater = (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
 
@@ -571,6 +578,38 @@ function CommentsSection({
   );
 }
 
+// A keyboard/screen-reader accessible alternative to dragging the card
+// between columns — dnd-kit's pointer-only sensor here means drag is the
+// only way to move a card otherwise. Reuses the exact same move logic
+// (reasoning/gate checks included) as a drag-and-drop drop.
+function MoveToStage({
+  idea,
+  stages,
+  onRequestMove,
+}: {
+  idea: IdeaWithExtras;
+  stages: StageMeta[];
+  onRequestMove: (ideaId: string, targetStageId: string) => void;
+}) {
+  return (
+    <Select value={idea.stageId} onValueChange={(value) => value && onRequestMove(idea.id, value)}>
+      <SelectTrigger size="sm" className="w-auto" aria-label="Move to stage">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {stages
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((stage) => (
+            <SelectItem key={stage.id} value={stage.id}>
+              {stage.name}
+            </SelectItem>
+          ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function FavoriteToggle({
   ideaId,
   favorited,
@@ -722,6 +761,7 @@ export function IdeaDetailDialog({
   labId,
   onToggleFavorite,
   onIdeaUpdate,
+  onRequestMove,
 }: {
   idea: IdeaWithExtras;
   open: boolean;
@@ -733,6 +773,7 @@ export function IdeaDetailDialog({
   labId: string;
   onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
   onIdeaUpdate: IdeaUpdater;
+  onRequestMove: (ideaId: string, targetStageId: string) => void;
 }) {
   const currentStage = stages.find((s) => s.id === idea.stageId);
   const currentPosition = currentStage?.position ?? 0;
@@ -759,6 +800,10 @@ export function IdeaDetailDialog({
               count={idea.favoriteCount}
               onToggleFavorite={onToggleFavorite}
             />
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">Stage:</span>
+            <MoveToStage idea={idea} stages={stages} onRequestMove={onRequestMove} />
           </div>
           <DialogDescription>
             {idea.category && <Badge variant="outline">{idea.category}</Badge>}

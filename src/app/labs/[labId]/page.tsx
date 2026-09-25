@@ -78,6 +78,7 @@ export default async function LabPipelinePage({
     stageData: idea.stage_data ?? {},
     createdByEmail: idea.created_by ? (emailById.get(idea.created_by) ?? null) : null,
     createdAt: idea.created_at,
+    updatedAt: idea.updated_at,
     ratings: (ratingRows ?? [])
       .filter((r) => r.idea_id === idea.id)
       .map((r) => ({ criterionId: r.criterion_id, userId: r.user_id, score: r.score })),

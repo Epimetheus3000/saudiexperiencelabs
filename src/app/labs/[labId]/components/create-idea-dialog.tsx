@@ -67,6 +67,7 @@ export function CreateIdeaDialog({
       stageData: {},
       createdByEmail: currentUserEmail,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ratings: [],
       comments: [],
       favoritedByCurrentUser: false,

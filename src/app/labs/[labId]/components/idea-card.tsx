@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Star, Trash2 } from "lucide-react";
+import { Star, Trash2, Clock } from "lucide-react";
 import type { IdeaWithExtras, CriterionMeta, StageMeta } from "@/app/labs/[labId]/types";
+import { isIdeaStale } from "@/app/labs/[labId]/idea-utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,6 +32,7 @@ export function IdeaCard({
   onToggleFavorite,
   onDeleteIdea,
   onIdeaUpdate,
+  onRequestMove,
 }: {
   idea: IdeaWithExtras;
   labId: string;
@@ -42,11 +44,13 @@ export function IdeaCard({
   onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
   onDeleteIdea: (ideaId: string) => void;
   onIdeaUpdate: (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
+  onRequestMove: (ideaId: string, targetStageId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: idea.id,
   });
+  const stale = isIdeaStale(idea);
 
   const style = transform
     ? { transform: CSS.Translate.toString(transform), zIndex: isDragging ? 10 : undefined }
@@ -78,14 +82,24 @@ export function IdeaCard({
         )}
         <CardHeader className="px-3">
           <CardTitle className="pr-4 text-sm font-medium leading-snug">{idea.title}</CardTitle>
-          <div className="flex items-center justify-between gap-2">
-            {idea.category ? (
-              <Badge variant="outline" className="w-fit text-xs">
-                {idea.category}
-              </Badge>
-            ) : (
-              <span />
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {idea.category && (
+                <Badge variant="outline" className="w-fit text-xs">
+                  {idea.category}
+                </Badge>
+              )}
+              {stale && (
+                <Badge
+                  variant="outline"
+                  className="w-fit gap-1 border-amber-300 text-xs text-amber-700"
+                  title="No activity in 14+ days"
+                >
+                  <Clock className="size-3" />
+                  Stale
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -146,6 +160,7 @@ export function IdeaCard({
         labId={labId}
         onToggleFavorite={onToggleFavorite}
         onIdeaUpdate={onIdeaUpdate}
+        onRequestMove={onRequestMove}
       />
     </>
   );

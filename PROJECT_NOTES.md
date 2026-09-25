@@ -298,3 +298,51 @@ when working on magic-link auth.
   `dangerouslyDisableSandbox: true`) and pointing the browser at
   `localhost:3000` directly works fine — that's the pattern used throughout
   this project.
+
+## Pipeline board UX pass (search/filter/sort, list view, stale flag, move-to-stage)
+
+Follow-up to the optimistic-UI/performance rewrite: implemented the
+"quick win" tier of the UX suggestions without adding any new
+`router.refresh()` calls or otherwise touching the optimistic-update
+architecture.
+
+- **Search/filter/sort toolbar** (`pipeline-board.tsx`): a `visibleIdeas`
+  `useMemo` filters `localIdeas` by free-text search (title + description +
+  category), a category `Select`, and a "Favorites only" toggle, then
+  sorts by `sortBy` (`added` / `newest` / `favorites` / `rating`). This all
+  runs client-side against data already loaded — no network round-trip.
+  `ideasByStage` (what the board columns render) now derives from
+  `visibleIdeas`, not `localIdeas` directly.
+- **Board/List view toggle**: `IdeaListView`
+  (`components/idea-list-view.tsx`) is a flat sortable table over the same
+  `visibleIdeas`, for scanning/reviewing everything at once instead of
+  per-column. Clicking a row opens the same `IdeaDetailDialog` the board
+  uses, via a lifted `selectedIdeaId` state in `PipelineBoard` (not a
+  per-card `open` state, since the list view has no cards).
+- **Stale idea indicator** (`idea-utils.ts`): `isIdeaStale()` flags any
+  idea whose `updatedAt` (the DB's existing `set_updated_at()` trigger
+  column) is 14+ days old. Deliberately one field/one threshold — a
+  clock-icon "Stale" badge on the card and in the list view, nothing more
+  elaborate. Requires `ideas.updated_at` to be selected and mapped through
+  as `updatedAt` in `page.tsx` and `IdeaWithExtras`.
+- **Move-to-stage dropdown** (`idea-detail-dialog.tsx`): a `Select` in the
+  detail dialog header lets you change an idea's stage without
+  drag-and-drop — same gate-checking logic as dragging, since both call
+  the same `requestMove(ideaId, targetStageId)` function (extracted out of
+  the old inline `onDragEnd` body in `pipeline-board.tsx`). This is the
+  keyboard/screen-reader-accessible path onto the board; true accessible
+  drag-and-drop was judged not worth the complexity given this simpler
+  alternative exists.
+- **Deliberately not built**: a separate "saved" status indicator. Every
+  mutation is already optimistic (the UI changes the instant you act), and
+  multi-field stage-data forms already show `toast.success`/`toast.error`
+  on save. A dedicated saved-state UI element would be redundant chrome
+  given those two signals already exist — cut to keep the UI simpler, per
+  the "very easy to understand and use" constraint.
+- **Base UI `Select` gotcha, again**: `categoryFilter`'s `onValueChange`
+  hit the same `string | null` issue as everywhere else — wrap with
+  `(v) => setCategoryFilter(v ?? "all")`.
+
+Still pending the user's decision before building (not started): soft-delete
+for ideas, notifications (digest/activity), a cross-lab leadership
+dashboard, and duplicate-idea detection on creation.

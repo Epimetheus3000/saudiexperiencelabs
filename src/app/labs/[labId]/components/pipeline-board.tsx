@@ -23,13 +23,26 @@ import {
 import { toast } from "sonner";
 import { moveIdea, updateStageData, toggleFavorite, createIdea, deleteIdea } from "@/app/labs/[labId]/actions";
 import type { IdeaWithExtras, StageMeta, CriterionMeta } from "@/app/labs/[labId]/types";
+import { averageRating } from "@/app/labs/[labId]/idea-utils";
 import { IdeaCard } from "./idea-card";
+import { IdeaListView } from "./idea-list-view";
 import { CreateIdeaDialog } from "./create-idea-dialog";
+import { IdeaDetailDialog } from "./idea-detail-dialog";
 import { ReasoningDialog } from "./reasoning-dialog";
 import { StageGateDialog, type GateField } from "./stage-gate-dialog";
 import { Countdown } from "@/components/countdown";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Star, LayoutGrid, List as ListIcon } from "lucide-react";
 
 const STAGE_ICONS: Record<string, LucideIcon> = {
   Longlist: ListChecks,
@@ -56,6 +69,17 @@ const STAGE_GATE_FIELDS: Record<
   ],
   Distribution: [{ stageKey: "distribution", field: "requirements", label: "Requirements" }],
 };
+
+type SortOption = "added" | "newest" | "favorites" | "rating";
+
+function sortIdeas(list: IdeaWithExtras[], sortBy: SortOption) {
+  if (sortBy === "added") return list;
+  const sorted = [...list];
+  if (sortBy === "favorites") sorted.sort((a, b) => b.favoriteCount - a.favoriteCount);
+  else if (sortBy === "rating") sorted.sort((a, b) => averageRating(b) - averageRating(a));
+  else sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return sorted;
+}
 
 // The header sits in shared grid row 1 across every column (see
 // PipelineBoard's render) so CSS Grid's native row-track sizing gives every
@@ -109,6 +133,7 @@ function ColumnBody({
   onDeleteIdea,
   onCreateIdea,
   onIdeaUpdate,
+  onRequestMove,
 }: {
   stage: StageMeta;
   ideas: IdeaWithExtras[];
@@ -123,6 +148,7 @@ function ColumnBody({
   onDeleteIdea: (ideaId: string) => void;
   onCreateIdea: (tempIdea: IdeaWithExtras, formData: FormData) => void;
   onIdeaUpdate: (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
+  onRequestMove: (ideaId: string, targetStageId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const isLonglist = stage.name === "Longlist";
@@ -157,6 +183,7 @@ function ColumnBody({
           onToggleFavorite={onToggleFavorite}
           onDeleteIdea={onDeleteIdea}
           onIdeaUpdate={onIdeaUpdate}
+          onRequestMove={onRequestMove}
         />
       ))}
       {ideas.length === 0 && !isLonglist && (
@@ -196,6 +223,12 @@ export function PipelineBoard({
     setLocalIdeas(ideas);
   }
   const [activeIdeaId, setActiveIdeaId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("added");
+  const [view, setView] = useState<"board" | "list">("board");
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<{
     ideaId: string;
     ideaTitle: string;
@@ -218,14 +251,32 @@ export function PipelineBoard({
   const longlistStage = stages.find((s) => s.name === "Longlist");
   const shortlistStage = stages.find((s) => s.name === "Shortlist");
 
+  // Client-side, since every idea is already loaded — filtering/sorting
+  // this way is instant, no round-trip needed.
+  const visibleIdeas = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = localIdeas.filter((idea) => {
+      if (favoritesOnly && !idea.favoritedByCurrentUser) return false;
+      if (categoryFilter !== "all" && idea.category !== categoryFilter) return false;
+      if (query) {
+        const haystack = `${idea.title} ${idea.description ?? ""} ${idea.category ?? ""}`.toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return true;
+    });
+    return sortIdeas(filtered, sortBy);
+  }, [localIdeas, searchQuery, categoryFilter, favoritesOnly, sortBy]);
+
   const ideasByStage = useMemo(() => {
     const map = new Map<string, IdeaWithExtras[]>();
     for (const stage of stages) map.set(stage.id, []);
-    for (const idea of localIdeas) {
+    for (const idea of visibleIdeas) {
       map.get(idea.stageId)?.push(idea);
     }
     return map;
-  }, [localIdeas, stages]);
+  }, [visibleIdeas, stages]);
+
+  const selectedIdea = localIdeas.find((i) => i.id === selectedIdeaId) ?? null;
 
   const activeIdea = localIdeas.find((i) => i.id === activeIdeaId) ?? null;
 
@@ -249,6 +300,7 @@ export function PipelineBoard({
           ? {
               ...i,
               stageId: targetStageId,
+              updatedAt: new Date().toISOString(),
               stageData: {
                 ...i.stageData,
                 ...(shortlistPatch && {
@@ -335,13 +387,10 @@ export function PipelineBoard({
     });
   }
 
-  function onDragEnd(event: DragEndEvent) {
-    setActiveIdeaId(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const ideaId = String(active.id);
-    const targetStageId = String(over.id);
+  // Shared by drag-and-drop and the "Move to stage" dropdown in the idea
+  // dialog — the same reasoning/gate checks apply no matter how the move
+  // was requested, so this only needs to exist once.
+  function requestMove(ideaId: string, targetStageId: string) {
     const idea = localIdeas.find((i) => i.id === ideaId);
     const targetStage = stages.find((s) => s.id === targetStageId);
     if (!idea || !targetStage || idea.stageId === targetStageId) return;
@@ -388,8 +437,92 @@ export function PipelineBoard({
     });
   }
 
+  function onDragEnd(event: DragEndEvent) {
+    setActiveIdeaId(null);
+    const { active, over } = event;
+    if (!over) return;
+    requestMove(String(active.id), String(over.id));
+  }
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search ideas…"
+            className="w-56 pl-7"
+          />
+        </div>
+
+        {categories.length > 0 && (
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
+            <SelectTrigger size="sm" className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <Button
+          type="button"
+          variant={favoritesOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFavoritesOnly((v) => !v)}
+          className="gap-1.5"
+        >
+          <Star className={`size-3.5 ${favoritesOnly ? "fill-white" : ""}`} />
+          Favorites
+        </Button>
+
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+          <SelectTrigger size="sm" className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="added">Order added</SelectItem>
+            <SelectItem value="newest">Newest first</SelectItem>
+            <SelectItem value="favorites">Most favorited</SelectItem>
+            <SelectItem value="rating">Highest rated</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="ml-auto flex items-center gap-1 rounded-lg border p-0.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={view === "board" ? "secondary" : "ghost"}
+            onClick={() => setView("board")}
+            className="gap-1.5"
+          >
+            <LayoutGrid className="size-3.5" />
+            Board
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={view === "list" ? "secondary" : "ghost"}
+            onClick={() => setView("list")}
+            className="gap-1.5"
+          >
+            <ListIcon className="size-3.5" />
+            List
+          </Button>
+        </div>
+      </div>
+
+      {view === "list" ? (
+        <IdeaListView ideas={visibleIdeas} stages={stages} onOpenIdea={setSelectedIdeaId} />
+      ) : (
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div
           className="grid flex-1 gap-x-4 gap-y-1.5 overflow-x-auto p-4"
@@ -426,6 +559,7 @@ export function PipelineBoard({
               onDeleteIdea={commitDeleteIdea}
               onCreateIdea={commitCreateIdea}
               onIdeaUpdate={applyIdeaPatch}
+              onRequestMove={requestMove}
             />
           ))}
         </div>
@@ -440,6 +574,24 @@ export function PipelineBoard({
           )}
         </DragOverlay>
       </DndContext>
+      )}
+
+      {selectedIdea && (
+        <IdeaDetailDialog
+          key={selectedIdea.id}
+          idea={selectedIdea}
+          open
+          onOpenChange={(next) => !next && setSelectedIdeaId(null)}
+          stages={stages}
+          criteria={criteria}
+          currentUserId={currentUserId}
+          currentUserEmail={currentUserEmail}
+          labId={labId}
+          onToggleFavorite={commitToggleFavorite}
+          onIdeaUpdate={applyIdeaPatch}
+          onRequestMove={requestMove}
+        />
+      )}
 
       {pendingMove && (
         <ReasoningDialog

@@ -51,6 +51,7 @@ export type IdeaWithExtras = {
   stageData: StageData;
   createdByEmail: string | null;
   createdAt: string;
+  updatedAt: string;
   ratings: RatingEntry[];
   comments: CommentWithAuthor[];
   favoritedByCurrentUser: boolean;
