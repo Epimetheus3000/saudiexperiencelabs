@@ -1,10 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
-import { toast } from "sonner";
-import { createIdea } from "@/app/labs/[labId]/actions";
+import type { IdeaWithExtras } from "@/app/labs/[labId]/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,36 +25,59 @@ import {
 
 export function CreateIdeaDialog({
   labId,
+  stageId,
   longlistCount,
   categories,
+  currentUserEmail,
+  onCreateIdea,
 }: {
   labId: string;
+  stageId: string;
   longlistCount: number;
   categories: string[];
+  currentUserEmail: string;
+  onCreateIdea: (tempIdea: IdeaWithExtras, formData: FormData) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const atCap = longlistCount >= 50;
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (atCap) return;
     const formData = new FormData(e.currentTarget);
     formData.set("category", category);
-    startTransition(async () => {
-      const result = await createIdea(labId, formData);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Idea added to Longlist");
-      formRef.current?.reset();
-      setCategory("");
-      setOpen(false);
-      router.refresh();
-    });
+
+    const title = String(formData.get("title") ?? "").trim();
+    if (!title) return;
+
+    // Optimistic: the card appears the instant you submit, and the real id
+    // from the server is reconciled in the background — see
+    // PipelineBoard.commitCreateIdea. No router.refresh() needed on success.
+    const tempIdea: IdeaWithExtras = {
+      id: crypto.randomUUID(),
+      labId,
+      stageId,
+      title,
+      category: category || null,
+      description: String(formData.get("description") ?? "") || null,
+      pros: String(formData.get("pros") ?? "") || null,
+      cons: String(formData.get("cons") ?? "") || null,
+      stageData: {},
+      createdByEmail: currentUserEmail,
+      createdAt: new Date().toISOString(),
+      ratings: [],
+      comments: [],
+      favoritedByCurrentUser: false,
+      favoriteCount: 0,
+      requirements: [],
+    };
+
+    onCreateIdea(tempIdea, formData);
+    formRef.current?.reset();
+    setCategory("");
+    setOpen(false);
   }
 
   return (
@@ -116,9 +137,7 @@ export function CreateIdeaDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Adding…" : "Add to Longlist"}
-            </Button>
+            <Button type="submit">Add to Longlist</Button>
           </DialogFooter>
         </form>
       </DialogContent>

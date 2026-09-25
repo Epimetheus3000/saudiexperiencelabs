@@ -90,21 +90,36 @@ own.
 **Gotcha: server actions here rely on `revalidatePath`, which is not
 enough on its own.** It invalidates the Next.js cache server-side, but an
 already-mounted client component's props won't refetch until something
-calls `router.refresh()` from the browser. Comments, ratings, checklists,
-stage-data forms, and requirements in `idea-detail-dialog.tsx` all still
-call `router.refresh()` after a successful action for this reason — skip
-it there and the UI silently goes stale until a manual reload.
+calls `router.refresh()` from the browser.
 
-**Drag-and-drop moves and favorite toggles are optimistic, not
-`router.refresh()`-based** — they update `localIdeas` in `PipelineBoard`
-immediately (before the network call resolves) and only revert on
-failure. This was a deliberate change: waiting for the round-trip (or, for
-favorites, a full-page `router.refresh()`) made both feel slow. If a new
-interaction on the board needs to feel instant, follow this pattern
-(update local state first, persist in the background, roll back on
-error) rather than the refresh-after-await pattern used elsewhere in the
-dialog — the two are not interchangeable, and mixing them back in for
-drag/favorites is the regression to avoid.
+**Every mutation on the pipeline board is optimistic — this is load-bearing
+for perceived speed, not a style preference.** Drags, favorites, ratings,
+checklists, the Shortlist/Concept/Prototyping/Distribution forms, comments,
+and requirements all update `PipelineBoard`'s `localIdeas` state
+*immediately*, before the server action resolves, via two entry points:
+- `commitMove` / `commitToggleFavorite` / `commitDeleteIdea` /
+  `commitCreateIdea` in `pipeline-board.tsx` for board-level actions (drag,
+  favorite, delete, create) — each snapshots the previous state and rolls
+  back if the save fails.
+- `applyIdeaPatch` (passed down as `onIdeaUpdate`) for everything inside
+  `IdeaDetailDialog` — each section computes its own next-state patch
+  (e.g. a new `stageData.concept` object, or `comments` with a synthesized
+  entry appended) and applies it via `onIdeaUpdate` before awaiting the
+  server action. On failure these call `router.refresh()` as a blunt
+  resync rather than hand-writing a precise revert — errors are the rare
+  path, so a full refresh there is an acceptable cost.
+
+This was a deliberate rewrite (previously most of these called
+`router.refresh()` on *success*, which — combined with re-fetching the
+lab's entire ideas/comments/ratings/favorites/requirements dataset — made
+the whole board feel slow). **Do not reintroduce success-path
+`router.refresh()` calls here**; any new mutation on the board should
+follow the same pattern (patch local state first, persist in the
+background, resync only on error), or the sluggishness comes back. Comment
+and requirement optimistic entries use `crypto.randomUUID()` for a temp id
+and the current user's own email (threaded down as `currentUserEmail`);
+newly created ideas do the same and get their temp id reconciled with the
+server's real id once `createIdea` returns it.
 
 ## Brand system — read this before touching anything visual
 

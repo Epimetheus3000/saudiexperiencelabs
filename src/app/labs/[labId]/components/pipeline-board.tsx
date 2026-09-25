@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { moveIdea, updateStageData, toggleFavorite } from "@/app/labs/[labId]/actions";
+import { moveIdea, updateStageData, toggleFavorite, createIdea, deleteIdea } from "@/app/labs/[labId]/actions";
 import type { IdeaWithExtras, StageMeta, CriterionMeta } from "@/app/labs/[labId]/types";
 import { IdeaCard } from "./idea-card";
 import { CreateIdeaDialog } from "./create-idea-dialog";
@@ -102,9 +102,13 @@ function ColumnBody({
   stages,
   criteria,
   currentUserId,
+  currentUserEmail,
   isMaster,
   categories,
   onToggleFavorite,
+  onDeleteIdea,
+  onCreateIdea,
+  onIdeaUpdate,
 }: {
   stage: StageMeta;
   ideas: IdeaWithExtras[];
@@ -112,9 +116,13 @@ function ColumnBody({
   stages: StageMeta[];
   criteria: CriterionMeta[];
   currentUserId: string;
+  currentUserEmail: string;
   isMaster: boolean;
   categories: string[];
   onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
+  onDeleteIdea: (ideaId: string) => void;
+  onCreateIdea: (tempIdea: IdeaWithExtras, formData: FormData) => void;
+  onIdeaUpdate: (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const isLonglist = stage.name === "Longlist";
@@ -127,7 +135,14 @@ function ColumnBody({
       }`}
     >
       {isLonglist && (
-        <CreateIdeaDialog labId={labId} longlistCount={ideas.length} categories={categories} />
+        <CreateIdeaDialog
+          labId={labId}
+          stageId={stage.id}
+          longlistCount={ideas.length}
+          categories={categories}
+          currentUserEmail={currentUserEmail}
+          onCreateIdea={onCreateIdea}
+        />
       )}
       {ideas.map((idea) => (
         <IdeaCard
@@ -137,8 +152,11 @@ function ColumnBody({
           stages={stages}
           criteria={criteria}
           currentUserId={currentUserId}
+          currentUserEmail={currentUserEmail}
           isMaster={isMaster}
           onToggleFavorite={onToggleFavorite}
+          onDeleteIdea={onDeleteIdea}
+          onIdeaUpdate={onIdeaUpdate}
         />
       ))}
       {ideas.length === 0 && !isLonglist && (
@@ -154,6 +172,7 @@ export function PipelineBoard({
   ideas,
   criteria,
   currentUserId,
+  currentUserEmail,
   isMaster,
   categories,
 }: {
@@ -162,6 +181,7 @@ export function PipelineBoard({
   ideas: IdeaWithExtras[];
   criteria: CriterionMeta[];
   currentUserId: string;
+  currentUserEmail: string;
   isMaster: boolean;
   categories: string[];
 }) {
@@ -274,6 +294,47 @@ export function PipelineBoard({
     });
   }
 
+  // Generic optimistic patch, used by every mutation inside the idea detail
+  // dialog (ratings, checklists, stage-data forms, comments, requirements).
+  // Each caller computes its own next-state shape and applies it here
+  // immediately; on a save failure the caller falls back to router.refresh()
+  // to resync from the server rather than hand-writing a revert for every
+  // field shape.
+  function applyIdeaPatch(ideaId: string, patch: Partial<IdeaWithExtras>) {
+    setLocalIdeas((prev) => prev.map((i) => (i.id === ideaId ? { ...i, ...patch } : i)));
+  }
+
+  function commitDeleteIdea(ideaId: string) {
+    const previous = localIdeas;
+    setLocalIdeas((prev) => prev.filter((i) => i.id !== ideaId));
+    deleteIdea(ideaId, labId).then((result) => {
+      if (!result.ok) {
+        setLocalIdeas(previous);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Idea removed");
+    });
+  }
+
+  function commitCreateIdea(tempIdea: IdeaWithExtras, formData: FormData) {
+    setLocalIdeas((prev) => [...prev, tempIdea]);
+    createIdea(labId, formData).then((result) => {
+      if (!result.ok) {
+        setLocalIdeas((prev) => prev.filter((i) => i.id !== tempIdea.id));
+        toast.error(result.error);
+        return;
+      }
+      // Reconcile the client-generated temp id with the real one — the
+      // window where they differ is just this round-trip.
+      setLocalIdeas((prev) =>
+        prev.map((i) =>
+          i.id === tempIdea.id ? { ...i, id: result.idea.id, createdAt: result.idea.createdAt } : i,
+        ),
+      );
+    });
+  }
+
   function onDragEnd(event: DragEndEvent) {
     setActiveIdeaId(null);
     const { active, over } = event;
@@ -358,9 +419,13 @@ export function PipelineBoard({
               stages={stages}
               criteria={criteria}
               currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
               isMaster={isMaster}
               categories={categories}
               onToggleFavorite={commitToggleFavorite}
+              onDeleteIdea={commitDeleteIdea}
+              onCreateIdea={commitCreateIdea}
+              onIdeaUpdate={applyIdeaPatch}
             />
           ))}
         </div>

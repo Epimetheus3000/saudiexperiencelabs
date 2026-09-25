@@ -47,21 +47,25 @@ export async function createIdea(labId: string, formData: FormData) {
 
   if (!longlistStage) return fail("Longlist stage not found for this lab");
 
-  const { error } = await supabase.from("ideas").insert({
-    lab_id: labId,
-    stage_id: longlistStage.id,
-    title: parsed.data.title,
-    category: parsed.data.category || null,
-    description: parsed.data.description || null,
-    pros: parsed.data.pros || null,
-    cons: parsed.data.cons || null,
-    created_by: user.id,
-  });
+  const { data: inserted, error } = await supabase
+    .from("ideas")
+    .insert({
+      lab_id: labId,
+      stage_id: longlistStage.id,
+      title: parsed.data.title,
+      category: parsed.data.category || null,
+      description: parsed.data.description || null,
+      pros: parsed.data.pros || null,
+      cons: parsed.data.cons || null,
+      created_by: user.id,
+    })
+    .select("id, created_at")
+    .single();
 
   if (error) return fail(error.message);
 
   revalidatePath(`/labs/${labId}`);
-  return ok();
+  return { ok: true as const, idea: { id: inserted.id, createdAt: inserted.created_at } };
 }
 
 async function readStageData(

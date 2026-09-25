@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -31,6 +31,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+type IdeaUpdater = (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
+
 function ScoreButton({
   score,
   selected,
@@ -54,20 +56,20 @@ function ScoreButton({
 }
 
 function CriterionRating({
-  ideaId,
+  idea,
   labId,
   criterion,
   currentUserId,
-  ratings,
+  onIdeaUpdate,
 }: {
-  ideaId: string;
+  idea: IdeaWithExtras;
   labId: string;
   criterion: CriterionMeta;
   currentUserId: string;
-  ratings: IdeaWithExtras["ratings"];
+  onIdeaUpdate: IdeaUpdater;
 }) {
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const ratings = idea.ratings;
   const myRating = ratings.find(
     (r) => r.criterionId === criterion.id && r.userId === currentUserId,
   );
@@ -76,13 +78,16 @@ function CriterionRating({
     others.length > 0 ? (others.reduce((sum, r) => sum + r.score, 0) / others.length).toFixed(1) : null;
 
   function onSelect(score: number) {
-    startTransition(async () => {
-      const result = await upsertRating(ideaId, labId, criterion.id, score);
+    const nextRatings = [
+      ...ratings.filter((r) => !(r.criterionId === criterion.id && r.userId === currentUserId)),
+      { criterionId: criterion.id, userId: currentUserId, score },
+    ];
+    onIdeaUpdate(idea.id, { ratings: nextRatings });
+    upsertRating(idea.id, labId, criterion.id, score).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      router.refresh();
     });
   }
 
@@ -96,7 +101,7 @@ function CriterionRating({
           </p>
         )}
       </div>
-      <div className={`flex gap-1 ${isPending ? "opacity-60" : ""}`}>
+      <div className="flex gap-1">
         {Array.from({ length: criterion.scale }, (_, i) => i + 1).map((score) => (
           <ScoreButton
             key={score}
@@ -111,38 +116,38 @@ function CriterionRating({
 }
 
 function ChecklistSection({
-  ideaId,
+  idea,
   labId,
   stageKey,
   items,
-  checked,
+  onIdeaUpdate,
 }: {
-  ideaId: string;
+  idea: IdeaWithExtras;
   labId: string;
   stageKey: "shortlist" | "goLive";
   items: ChecklistItem[];
-  checked: Record<string, boolean>;
+  onIdeaUpdate: IdeaUpdater;
 }) {
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const checked = idea.stageData[stageKey]?.checklist ?? {};
 
   function onToggle(key: string, value: boolean) {
-    startTransition(async () => {
-      const result = await updateStageData(ideaId, labId, stageKey, {
-        checklist: { ...checked, [key]: value },
-      });
+    const nextChecklist = { ...checked, [key]: value };
+    onIdeaUpdate(idea.id, {
+      stageData: { ...idea.stageData, [stageKey]: { ...idea.stageData[stageKey], checklist: nextChecklist } },
+    });
+    updateStageData(idea.id, labId, stageKey, { checklist: nextChecklist }).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      router.refresh();
     });
   }
 
   if (items.length === 0) return null;
 
   return (
-    <div className={`space-y-1.5 ${isPending ? "opacity-60" : ""}`}>
+    <div className="space-y-1.5">
       {items.map((item) => (
         <label key={item.key} className="flex items-center gap-2 text-sm">
           <input
@@ -158,20 +163,33 @@ function ChecklistSection({
   );
 }
 
-function ShortlistSection({ idea, labId, stage }: { idea: IdeaWithExtras; labId: string; stage: StageMeta }) {
+function ShortlistSection({
+  idea,
+  labId,
+  stage,
+  onIdeaUpdate,
+}: {
+  idea: IdeaWithExtras;
+  labId: string;
+  stage: StageMeta;
+  onIdeaUpdate: IdeaUpdater;
+}) {
   const [reasoning, setReasoning] = useState(idea.stageData.shortlist?.reasoning ?? "");
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
   function onSave() {
-    startTransition(async () => {
-      const result = await updateStageData(idea.id, labId, "shortlist", { reasoning });
+    setIsPending(true);
+    onIdeaUpdate(idea.id, {
+      stageData: { ...idea.stageData, shortlist: { ...idea.stageData.shortlist, reasoning } },
+    });
+    toast.success("Reasoning saved");
+    updateStageData(idea.id, labId, "shortlist", { reasoning }).then((result) => {
+      setIsPending(false);
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      toast.success("Reasoning saved");
-      router.refresh();
     });
   }
 
@@ -181,15 +199,15 @@ function ShortlistSection({ idea, labId, stage }: { idea: IdeaWithExtras; labId:
         <Label htmlFor="reasoning">Reasoning for shortlisting</Label>
         <Textarea id="reasoning" rows={3} value={reasoning} onChange={(e) => setReasoning(e.target.value)} />
         <Button size="sm" disabled={isPending} onClick={onSave}>
-          {isPending ? "Saving…" : "Save reasoning"}
+          Save reasoning
         </Button>
       </div>
       <ChecklistSection
-        ideaId={idea.id}
+        idea={idea}
         labId={labId}
         stageKey="shortlist"
         items={stage.gateChecklist}
-        checked={idea.stageData.shortlist?.checklist ?? {}}
+        onIdeaUpdate={onIdeaUpdate}
       />
     </div>
   );
@@ -200,33 +218,34 @@ function ConceptSection({
   labId,
   criteria,
   currentUserId,
+  onIdeaUpdate,
 }: {
   idea: IdeaWithExtras;
   labId: string;
   criteria: CriterionMeta[];
   currentUserId: string;
+  onIdeaUpdate: IdeaUpdater;
 }) {
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const concept = idea.stageData.concept ?? {};
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const result = await updateStageData(idea.id, labId, "concept", {
-        place: formData.get("place") || null,
-        story: formData.get("story") || null,
-        operationalDetails: formData.get("operationalDetails") || null,
-        audience: formData.get("audience") || null,
-        notes: formData.get("notes") || null,
-      });
+    const patch = {
+      place: (formData.get("place") as string) || null,
+      story: (formData.get("story") as string) || null,
+      operationalDetails: (formData.get("operationalDetails") as string) || null,
+      audience: (formData.get("audience") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    };
+    onIdeaUpdate(idea.id, { stageData: { ...idea.stageData, concept: { ...concept, ...patch } } });
+    toast.success("Concept saved");
+    updateStageData(idea.id, labId, "concept", patch).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      toast.success("Concept saved");
-      router.refresh();
     });
   }
 
@@ -258,8 +277,8 @@ function ConceptSection({
           <Label htmlFor="notes">Notes</Label>
           <Textarea id="notes" name="notes" defaultValue={concept.notes ?? ""} rows={2} />
         </div>
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Saving…" : "Save concept"}
+        <Button type="submit" size="sm">
+          Save concept
         </Button>
       </form>
 
@@ -270,6 +289,8 @@ function ConceptSection({
           labId={labId}
           visuals={concept.visuals ?? []}
           currentUserId={currentUserId}
+          stageData={idea.stageData}
+          onIdeaUpdate={onIdeaUpdate}
         />
       </div>
 
@@ -280,11 +301,11 @@ function ConceptSection({
           {criteria.map((c) => (
             <CriterionRating
               key={c.id}
-              ideaId={idea.id}
+              idea={idea}
               labId={labId}
               criterion={c}
               currentUserId={currentUserId}
-              ratings={idea.ratings}
+              onIdeaUpdate={onIdeaUpdate}
             />
           ))}
         </div>
@@ -293,27 +314,36 @@ function ConceptSection({
   );
 }
 
-function PrototypingSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
-  const [isPending, startTransition] = useTransition();
+function PrototypingSection({
+  idea,
+  labId,
+  onIdeaUpdate,
+}: {
+  idea: IdeaWithExtras;
+  labId: string;
+  onIdeaUpdate: IdeaUpdater;
+}) {
   const router = useRouter();
   const prototyping = idea.stageData.prototyping ?? {};
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const result = await updateStageData(idea.id, labId, "prototyping", {
-        testDate: formData.get("testDate") || null,
-        audienceTested: formData.get("audienceTested") || null,
-        mvpDescription: formData.get("mvpDescription") || null,
-        results: formData.get("results") || null,
-      });
+    const patch = {
+      testDate: (formData.get("testDate") as string) || null,
+      audienceTested: (formData.get("audienceTested") as string) || null,
+      mvpDescription: (formData.get("mvpDescription") as string) || null,
+      results: (formData.get("results") as string) || null,
+    };
+    onIdeaUpdate(idea.id, {
+      stageData: { ...idea.stageData, prototyping: { ...prototyping, ...patch } },
+    });
+    toast.success("Prototyping details saved");
+    updateStageData(idea.id, labId, "prototyping", patch).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      toast.success("Prototyping details saved");
-      router.refresh();
     });
   }
 
@@ -345,59 +375,57 @@ function PrototypingSection({ idea, labId }: { idea: IdeaWithExtras; labId: stri
         <Label htmlFor="results">Results</Label>
         <Textarea id="results" name="results" defaultValue={prototyping.results ?? ""} rows={3} />
       </div>
-      <Button type="submit" size="sm" disabled={isPending}>
-        {isPending ? "Saving…" : "Save"}
+      <Button type="submit" size="sm">
+        Save
       </Button>
     </form>
   );
 }
 
-function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
-  const [isPending, startTransition] = useTransition();
+function DistributionSection({
+  idea,
+  labId,
+  onIdeaUpdate,
+}: {
+  idea: IdeaWithExtras;
+  labId: string;
+  onIdeaUpdate: IdeaUpdater;
+}) {
   const router = useRouter();
   const distribution = idea.stageData.distribution ?? {};
   const [todoText, setTodoText] = useState("");
 
-  function saveChannels(channels: string[]) {
-    startTransition(async () => {
-      const result = await updateStageData(idea.id, labId, "distribution", { channels });
+  function persist(patch: Record<string, unknown>) {
+    updateStageData(idea.id, labId, "distribution", patch).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      router.refresh();
     });
   }
 
   function onToggleChannel(key: string, on: boolean) {
     const current = distribution.channels ?? [];
-    saveChannels(on ? [...current, key] : current.filter((c) => c !== key));
+    const channels = on ? [...current, key] : current.filter((c) => c !== key);
+    onIdeaUpdate(idea.id, {
+      stageData: { ...idea.stageData, distribution: { ...distribution, channels } },
+    });
+    persist({ channels });
   }
 
   function onSaveRequirements(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const result = await updateStageData(idea.id, labId, "distribution", {
-        requirements: formData.get("requirements") || null,
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
+    const requirements = (formData.get("requirements") as string) || null;
+    onIdeaUpdate(idea.id, {
+      stageData: { ...idea.stageData, distribution: { ...distribution, requirements } },
     });
+    persist({ requirements });
   }
 
   function saveTodo(todo: TodoItem[]) {
-    startTransition(async () => {
-      const result = await updateStageData(idea.id, labId, "distribution", { todo });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
+    onIdeaUpdate(idea.id, { stageData: { ...idea.stageData, distribution: { ...distribution, todo } } });
+    persist({ todo });
   }
 
   function onAddTodo() {
@@ -425,7 +453,6 @@ function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: str
               <input
                 type="checkbox"
                 checked={(distribution.channels ?? []).includes(ch.key)}
-                disabled={isPending}
                 onChange={(e) => onToggleChannel(ch.key, e.target.checked)}
               />
               {ch.label}
@@ -437,7 +464,7 @@ function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: str
       <form onSubmit={onSaveRequirements} className="space-y-1.5">
         <Label htmlFor="requirements">Requirements</Label>
         <Textarea id="requirements" name="requirements" defaultValue={distribution.requirements ?? ""} rows={2} />
-        <Button type="submit" size="sm" disabled={isPending}>
+        <Button type="submit" size="sm">
           Save requirements
         </Button>
       </form>
@@ -462,7 +489,7 @@ function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: str
             placeholder="Add a task…"
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), onAddTodo())}
           />
-          <Button type="button" size="sm" variant="outline" onClick={onAddTodo} disabled={isPending}>
+          <Button type="button" size="sm" variant="outline" onClick={onAddTodo}>
             Add
           </Button>
         </div>
@@ -471,22 +498,44 @@ function DistributionSection({ idea, labId }: { idea: IdeaWithExtras; labId: str
   );
 }
 
-function CommentsSection({ idea, labId }: { idea: IdeaWithExtras; labId: string }) {
+function CommentsSection({
+  idea,
+  labId,
+  currentUserId,
+  currentUserEmail,
+  onIdeaUpdate,
+}: {
+  idea: IdeaWithExtras;
+  labId: string;
+  currentUserId: string;
+  currentUserEmail: string;
+  onIdeaUpdate: IdeaUpdater;
+}) {
   const [body, setBody] = useState("");
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!body.trim()) return;
-    startTransition(async () => {
-      const result = await addComment(idea.id, labId, body);
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    onIdeaUpdate(idea.id, {
+      comments: [
+        ...idea.comments,
+        {
+          id: crypto.randomUUID(),
+          userId: currentUserId,
+          authorEmail: currentUserEmail,
+          body: trimmed,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    setBody("");
+    addComment(idea.id, labId, trimmed).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      setBody("");
-      router.refresh();
     });
   }
 
@@ -514,7 +563,7 @@ function CommentsSection({ idea, labId }: { idea: IdeaWithExtras; labId: string 
           rows={2}
           className="flex-1"
         />
-        <Button type="submit" size="sm" disabled={isPending || !body.trim()}>
+        <Button type="submit" size="sm" disabled={!body.trim()}>
           Post
         </Button>
       </form>
@@ -557,48 +606,65 @@ function RequirementsSection({
   idea,
   labId,
   currentUserId,
+  currentUserEmail,
+  onIdeaUpdate,
 }: {
   idea: IdeaWithExtras;
   labId: string;
   currentUserId: string;
+  currentUserEmail: string;
+  onIdeaUpdate: IdeaUpdater;
 }) {
   const [body, setBody] = useState("");
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   function onAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!body.trim()) return;
-    startTransition(async () => {
-      const result = await addRequirement(idea.id, labId, body);
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    onIdeaUpdate(idea.id, {
+      requirements: [
+        ...idea.requirements,
+        {
+          id: crypto.randomUUID(),
+          userId: currentUserId,
+          authorEmail: currentUserEmail,
+          body: trimmed,
+          done: false,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    setBody("");
+    addRequirement(idea.id, labId, trimmed).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      setBody("");
-      router.refresh();
     });
   }
 
   function onToggle(requirementId: string, done: boolean) {
-    startTransition(async () => {
-      const result = await toggleRequirement(requirementId, labId, done);
+    onIdeaUpdate(idea.id, {
+      requirements: idea.requirements.map((r) => (r.id === requirementId ? { ...r, done } : r)),
+    });
+    toggleRequirement(requirementId, labId, done).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      router.refresh();
     });
   }
 
   function onRemove(requirementId: string) {
-    startTransition(async () => {
-      const result = await removeRequirement(requirementId, labId);
+    onIdeaUpdate(idea.id, {
+      requirements: idea.requirements.filter((r) => r.id !== requirementId),
+    });
+    removeRequirement(requirementId, labId).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
-        return;
+        router.refresh();
       }
-      router.refresh();
     });
   }
 
@@ -613,7 +679,6 @@ function RequirementsSection({
             <input
               type="checkbox"
               checked={r.done}
-              disabled={isPending}
               onChange={(e) => onToggle(r.id, e.target.checked)}
             />
             <span className={r.done ? "flex-1 text-muted-foreground line-through" : "flex-1"}>
@@ -638,7 +703,7 @@ function RequirementsSection({
           onChange={(e) => setBody(e.target.value)}
           placeholder="What does this idea need to move forward?"
         />
-        <Button type="submit" size="sm" variant="outline" disabled={isPending || !body.trim()}>
+        <Button type="submit" size="sm" variant="outline" disabled={!body.trim()}>
           Add
         </Button>
       </form>
@@ -653,8 +718,10 @@ export function IdeaDetailDialog({
   stages,
   criteria,
   currentUserId,
+  currentUserEmail,
   labId,
   onToggleFavorite,
+  onIdeaUpdate,
 }: {
   idea: IdeaWithExtras;
   open: boolean;
@@ -662,8 +729,10 @@ export function IdeaDetailDialog({
   stages: StageMeta[];
   criteria: CriterionMeta[];
   currentUserId: string;
+  currentUserEmail: string;
   labId: string;
   onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
+  onIdeaUpdate: IdeaUpdater;
 }) {
   const currentStage = stages.find((s) => s.id === idea.stageId);
   const currentPosition = currentStage?.position ?? 0;
@@ -723,7 +792,7 @@ export function IdeaDetailDialog({
               <Separator />
               <div>
                 <p className="mb-2 text-sm font-medium">Shortlist</p>
-                <ShortlistSection idea={idea} labId={labId} stage={shortlistStage} />
+                <ShortlistSection idea={idea} labId={labId} stage={shortlistStage} onIdeaUpdate={onIdeaUpdate} />
               </div>
             </>
           )}
@@ -733,7 +802,13 @@ export function IdeaDetailDialog({
               <Separator />
               <div>
                 <p className="mb-2 text-sm font-medium">Concept</p>
-                <ConceptSection idea={idea} labId={labId} criteria={criteria} currentUserId={currentUserId} />
+                <ConceptSection
+                  idea={idea}
+                  labId={labId}
+                  criteria={criteria}
+                  currentUserId={currentUserId}
+                  onIdeaUpdate={onIdeaUpdate}
+                />
               </div>
             </>
           )}
@@ -743,7 +818,7 @@ export function IdeaDetailDialog({
               <Separator />
               <div>
                 <p className="mb-2 text-sm font-medium">Prototyping / Field-Testing</p>
-                <PrototypingSection idea={idea} labId={labId} />
+                <PrototypingSection idea={idea} labId={labId} onIdeaUpdate={onIdeaUpdate} />
               </div>
             </>
           )}
@@ -754,11 +829,11 @@ export function IdeaDetailDialog({
               <div>
                 <p className="mb-2 text-sm font-medium">Go-Live checklist</p>
                 <ChecklistSection
-                  ideaId={idea.id}
+                  idea={idea}
                   labId={labId}
                   stageKey="goLive"
                   items={goLiveStage.gateChecklist}
-                  checked={idea.stageData.goLive?.checklist ?? {}}
+                  onIdeaUpdate={onIdeaUpdate}
                 />
               </div>
             </>
@@ -769,7 +844,7 @@ export function IdeaDetailDialog({
               <Separator />
               <div>
                 <p className="mb-2 text-sm font-medium">Distribution</p>
-                <DistributionSection idea={idea} labId={labId} />
+                <DistributionSection idea={idea} labId={labId} onIdeaUpdate={onIdeaUpdate} />
               </div>
             </>
           )}
@@ -777,13 +852,25 @@ export function IdeaDetailDialog({
           <Separator />
           <div>
             <p className="mb-2 text-sm font-medium">What this idea needs to move forward</p>
-            <RequirementsSection idea={idea} labId={labId} currentUserId={currentUserId} />
+            <RequirementsSection
+              idea={idea}
+              labId={labId}
+              currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
+              onIdeaUpdate={onIdeaUpdate}
+            />
           </div>
 
           <Separator />
           <div>
             <p className="mb-2 text-sm font-medium">Comments</p>
-            <CommentsSection idea={idea} labId={labId} />
+            <CommentsSection
+              idea={idea}
+              labId={labId}
+              currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
+              onIdeaUpdate={onIdeaUpdate}
+            />
           </div>
         </div>
       </DialogContent>

@@ -113,6 +113,7 @@ export default async function LabPipelinePage({
       ideas={ideasWithExtras}
       criteria={criteria}
       currentUserId={user.id}
+      currentUserEmail={user.email}
       isMaster={user.is_master}
       categories={lab?.categories ?? []}
     />

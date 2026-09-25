@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Star, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import { deleteIdea } from "@/app/labs/[labId]/actions";
 import type { IdeaWithExtras, CriterionMeta, StageMeta } from "@/app/labs/[labId]/types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,20 +26,24 @@ export function IdeaCard({
   stages,
   criteria,
   currentUserId,
+  currentUserEmail,
   isMaster,
   onToggleFavorite,
+  onDeleteIdea,
+  onIdeaUpdate,
 }: {
   idea: IdeaWithExtras;
   labId: string;
   stages: StageMeta[];
   criteria: CriterionMeta[];
   currentUserId: string;
+  currentUserEmail: string;
   isMaster: boolean;
   onToggleFavorite: (ideaId: string, currentlyFavorited: boolean) => void;
+  onDeleteIdea: (ideaId: string) => void;
+  onIdeaUpdate: (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: idea.id,
   });
@@ -54,18 +55,6 @@ export function IdeaCard({
   function handleToggleFavorite(e: React.MouseEvent) {
     e.stopPropagation();
     onToggleFavorite(idea.id, idea.favoritedByCurrentUser);
-  }
-
-  function onDelete() {
-    startTransition(async () => {
-      const result = await deleteIdea(idea.id, labId);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Idea removed");
-      router.refresh();
-    });
   }
 
   return (
@@ -119,8 +108,7 @@ export function IdeaCard({
                 <AlertDialog>
                   <AlertDialogTrigger
                     onClick={(e) => e.stopPropagation()}
-                    disabled={isPending}
-                    className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    className="text-muted-foreground hover:text-destructive"
                     title="Remove idea"
                   >
                     <Trash2 className="size-3.5" />
@@ -135,7 +123,9 @@ export function IdeaCard({
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete}>Remove</AlertDialogAction>
+                      <AlertDialogAction onClick={() => onDeleteIdea(idea.id)}>
+                        Remove
+                      </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -152,8 +142,10 @@ export function IdeaCard({
         stages={stages}
         criteria={criteria}
         currentUserId={currentUserId}
+        currentUserEmail={currentUserEmail}
         labId={labId}
         onToggleFavorite={onToggleFavorite}
+        onIdeaUpdate={onIdeaUpdate}
       />
     </>
   );

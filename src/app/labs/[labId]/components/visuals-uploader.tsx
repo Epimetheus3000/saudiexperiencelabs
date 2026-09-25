@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { updateStageData } from "@/app/labs/[labId]/actions";
-import type { Visual } from "@/app/labs/[labId]/stage-data";
+import type { Visual, StageData } from "@/app/labs/[labId]/stage-data";
+import type { IdeaWithExtras } from "@/app/labs/[labId]/types";
 import { Button } from "@/components/ui/button";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -16,15 +17,18 @@ export function VisualsUploader({
   labId,
   visuals,
   currentUserId,
+  stageData,
+  onIdeaUpdate,
 }: {
   ideaId: string;
   labId: string;
   visuals: Visual[];
   currentUserId: string;
+  stageData: StageData;
+  onIdeaUpdate: (ideaId: string, patch: Partial<IdeaWithExtras>) => void;
 }) {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [isUploading, setIsUploading] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -67,6 +71,9 @@ export function VisualsUploader({
       return;
     }
 
+    // The upload itself is real network time that can't be faked away, but
+    // once it's done, apply the result locally instead of waiting on a
+    // full-page router.refresh().
     setIsUploading(true);
     const supabase = createClient();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -80,30 +87,32 @@ export function VisualsUploader({
     }
 
     const newVisual: Visual = { path, uploadedBy: currentUserId, createdAt: new Date().toISOString() };
-    const result = await updateStageData(ideaId, labId, "concept", {
-      visuals: [...visuals, newVisual],
-    });
+    const nextVisuals = [...visuals, newVisual];
+    onIdeaUpdate(ideaId, { stageData: { ...stageData, concept: { ...stageData.concept, visuals: nextVisuals } } });
     setIsUploading(false);
+
+    const result = await updateStageData(ideaId, labId, "concept", { visuals: nextVisuals });
     if (!result.ok) {
       toast.error(result.error);
-      return;
+      router.refresh();
     }
-    router.refresh();
   }
 
   function onRemove(visual: Visual) {
-    startTransition(async () => {
-      const supabase = createClient();
-      await supabase.storage.from("idea-visuals").remove([visual.path]);
-      const result = await updateStageData(ideaId, labId, "concept", {
-        visuals: visuals.filter((v) => v.path !== visual.path),
+    const nextVisuals = visuals.filter((v) => v.path !== visual.path);
+    onIdeaUpdate(ideaId, { stageData: { ...stageData, concept: { ...stageData.concept, visuals: nextVisuals } } });
+
+    const supabase = createClient();
+    supabase.storage
+      .from("idea-visuals")
+      .remove([visual.path])
+      .then(() => updateStageData(ideaId, labId, "concept", { visuals: nextVisuals }))
+      .then((result) => {
+        if (!result.ok) {
+          toast.error(result.error);
+          router.refresh();
+        }
       });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
   }
 
   return (
@@ -121,7 +130,6 @@ export function VisualsUploader({
               <button
                 type="button"
                 onClick={() => onRemove(v)}
-                disabled={isPending}
                 className="absolute top-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
               >
                 Remove

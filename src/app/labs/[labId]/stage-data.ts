@@ -37,19 +37,19 @@ export type ShortlistData = {
 };
 
 export type ConceptData = {
-  place?: string;
-  story?: string;
-  operationalDetails?: string;
-  audience?: string;
-  notes?: string;
+  place?: string | null;
+  story?: string | null;
+  operationalDetails?: string | null;
+  audience?: string | null;
+  notes?: string | null;
   visuals?: Visual[];
 };
 
 export type PrototypingData = {
-  testDate?: string;
-  audienceTested?: string;
-  mvpDescription?: string;
-  results?: string;
+  testDate?: string | null;
+  audienceTested?: string | null;
+  mvpDescription?: string | null;
+  results?: string | null;
 };
 
 export type GoLiveData = {
@@ -65,7 +65,7 @@ export const DISTRIBUTION_CHANNELS = [
 
 export type DistributionData = {
   channels?: string[];
-  requirements?: string;
+  requirements?: string | null;
   todo?: TodoItem[];
 };
 
