@@ -115,17 +115,17 @@ function ColumnHeader({ stage, count }: { stage: StageMeta; count: number }) {
   );
 }
 
-// Fixed brand purple rather than the lab's own accent color (inherited via
-// --strip-color from the layout) — a solid brand-guideline color that reads
-// as "Saudi Experience Labs" chrome, distinct from whatever accent this
-// particular lab picked. --brand-purple-dark is never offered as a lab
-// accent option (see BRAND_ACCENTS in brand-color-picker.tsx), so it can't
-// collide with a lab's own color.
+// Flat brand purple, not the masked "pattern" strip artwork, and not the
+// lab's own accent color (which the layout sets as --strip-color) — a plain
+// solid-colored band that reads as fixed "Saudi Experience Labs" chrome.
+// --brand-purple-dark is never offered as a lab accent option (see
+// BRAND_ACCENTS in brand-color-picker.tsx), so it can't collide with
+// whatever color a given lab picked.
 function ColumnBand() {
   return (
     <div
-      className="pattern-strip h-1.5 w-72 shrink-0"
-      style={{ "--strip-color": "var(--brand-purple-dark)" } as React.CSSProperties}
+      className="h-1.5 w-72 shrink-0"
+      style={{ backgroundColor: "var(--brand-purple-dark)" }}
       aria-hidden
     />
   );

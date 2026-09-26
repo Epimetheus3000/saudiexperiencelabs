@@ -421,15 +421,30 @@ Two follow-up fixes after the hamburger menu change, from live feedback:
 
 ## Pipeline column band: fixed brand purple instead of the lab's own color
 
-`ColumnBand` (`pipeline-board.tsx`, the thin `.pattern-strip` band under
-each column header) used to inherit `--strip-color` from the lab layout
-wrapper, which sets it to `lab.primary_color` — so the band always matched
-whatever accent color that lab picked. Changed it to override
-`--strip-color: var(--brand-purple-dark)` inline, same technique the
-removed top-left brand block used to use. `--brand-purple-dark` is the
-guidelines' primary purple (`globals.css`) and is deliberately never
-offered as one of the 7 lab accent options in `BRAND_ACCENTS`
-(`brand-color-picker.tsx`) — so this band is now guaranteed to read as
-fixed "Saudi Experience Labs" chrome, not a repeat of the lab's own
-identity color. Still the same masked "Strip solid" artwork per the
-guidelines (p.42) — only the color variable changed, not the shape.
+`ColumnBand` (`pipeline-board.tsx`, the thin band under each column
+header) used to inherit `--strip-color` from the lab layout wrapper,
+which sets it to `lab.primary_color` — so the band always matched
+whatever accent color that lab picked. First fix: kept the masked
+"Strip solid" artwork (guidelines p.42) but overrode its color to
+`--brand-purple-dark`. **Superseded** by the next note below — the user
+then said explicitly they don't want the masked/patterned look at all,
+anywhere, not just a different color for it.
+
+## Column band, take two: flat solid color, no mask
+
+Per explicit follow-up ("I don't want the pattern in the strip"),
+`ColumnBand` no longer uses the `.pattern-strip` class (the CSS mask
+that gives it the "Strip solid" shaped/patterned look) at all — it's now
+a plain `<div>` with `backgroundColor: var(--brand-purple-dark)` and no
+mask-image, i.e. an actual flat solid-colored rectangle. Same fixed
+brand-purple reasoning as before (never one of the 7 lab accent options
+in `BRAND_ACCENTS`, so it can't collide with the lab's own color) — only
+the shape/masking is gone, not the color choice.
+
+This leaves `.pattern-strip` and `.pattern-strip-minimal`
+(`globals.css`) with zero remaining usages anywhere in the app. Left
+them defined rather than deleting — they're a documented, deliberate
+reproduction of an official Visit Saudi guideline element (with page
+references), so they're cheap to keep around if a future page ever
+wants that patterned look again. If nothing ever picks them back up,
+they're safe to delete along with `/public/brand/pattern-strip-mask.png`.
