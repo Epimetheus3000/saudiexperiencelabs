@@ -418,3 +418,18 @@ Two follow-up fixes after the hamburger menu change, from live feedback:
   band under each pipeline column header) and by the login/confirm pages'
   own logo — this change only removed the two lab-layout usages, not the
   class or the asset files.
+
+## Pipeline column band: fixed brand purple instead of the lab's own color
+
+`ColumnBand` (`pipeline-board.tsx`, the thin `.pattern-strip` band under
+each column header) used to inherit `--strip-color` from the lab layout
+wrapper, which sets it to `lab.primary_color` — so the band always matched
+whatever accent color that lab picked. Changed it to override
+`--strip-color: var(--brand-purple-dark)` inline, same technique the
+removed top-left brand block used to use. `--brand-purple-dark` is the
+guidelines' primary purple (`globals.css`) and is deliberately never
+offered as one of the 7 lab accent options in `BRAND_ACCENTS`
+(`brand-color-picker.tsx`) — so this band is now guaranteed to read as
+fixed "Saudi Experience Labs" chrome, not a repeat of the lab's own
+identity color. Still the same masked "Strip solid" artwork per the
+guidelines (p.42) — only the color variable changed, not the shape.
