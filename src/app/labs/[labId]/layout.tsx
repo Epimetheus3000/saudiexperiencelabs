@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { SignOutButton } from "@/components/sign-out-button";
+import { LabHeaderMenu } from "@/components/lab-header-menu";
 import { SquareCorners } from "@/components/square-corners";
 
 // Lab names are free-text set by admins (some stored ALL CAPS) — normalize
@@ -123,23 +123,7 @@ export default async function LabLayout({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <a
-              href={`/labs/${lab.id}/export`}
-              className="text-sm text-muted-foreground hover:underline"
-            >
-              Export to Excel
-            </a>
-            {user.is_master && (
-              <Link
-                href={`/admin/labs/${lab.id}`}
-                className="text-sm text-muted-foreground hover:underline"
-              >
-                Lab settings
-              </Link>
-            )}
-            <SignOutButton />
-          </div>
+          <LabHeaderMenu labId={lab.id} isMaster={user.is_master} />
         </div>
       </header>
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>

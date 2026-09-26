@@ -346,3 +346,48 @@ architecture.
 Still pending the user's decision before building (not started): soft-delete
 for ideas, notifications (digest/activity), a cross-lab leadership
 dashboard, and duplicate-idea detection on creation.
+
+## Lab header hamburger menu
+
+The lab header's three scattered actions ("Export to Excel" link, "Lab
+settings" link, "Sign out" button) are consolidated into one menu, opened
+from a single hamburger icon button — `LabHeaderMenu`
+(`src/components/lab-header-menu.tsx`), wired into `src/app/labs/[labId]/layout.tsx`
+next to the partner-branding block.
+
+Built on Base UI's `Menu` primitive
+(`src/components/ui/dropdown-menu.tsx`, previously defined but unused
+anywhere in the app). Added a `DropdownMenuLinkItem` wrapper around
+`Menu.LinkItem` for the two navigable items — Base UI has a dedicated
+`LinkItem` part (renders an `<a>`, supports `render` to compose with
+`next/link`'s `Link` for client-side nav) distinct from plain `Menu.Item`,
+and its docs explicitly call it out for menu items that navigate, so use
+it instead of `Menu.Item render={<a/>}`. Note its `closeOnClick` defaults
+to `false` (opposite of `Menu.Item`, which defaults to `true`) — pass
+`closeOnClick` explicitly on both link items so the menu doesn't stay open
+after navigating.
+
+"Export to Excel" renders as a plain `<a href="/labs/[id]/export">` (not
+`next/link`'s `Link`) since it's a file download
+(`Content-Disposition: attachment` in the route handler), not a page
+navigation — consistent with how it worked before this change. "Lab
+settings" uses `render={<Link href=... />}` for normal SPA navigation
+since it goes to a real page. "Sign out" stays a real `<form
+action="/auth/signout" method="post">` element (required — it's a
+server-side session mutation, not a client transition); the menu item is a
+plain `Menu.Item` whose `onClick` calls `.submit()` on a `useRef` pointing
+at a hidden sibling `<form>`, matching Base UI's documented pattern for
+menu items that need to trigger something imperatively rather than
+navigate.
+
+`SignOutButton` (`src/components/sign-out-button.tsx`) is untouched and
+still used by `src/app/page.tsx` and `src/app/admin/layout.tsx` — this
+change only touches the lab header, not the home page or admin section.
+
+Note: this container has no real Supabase credentials
+(`.env.local` doesn't exist here), and the app's middleware
+(`src/lib/supabase/middleware.ts`) runs on every route including a scratch
+test page — so a live click-through of this menu wasn't possible in this
+session; verified via `next build`/`eslint` only. If something looks off
+in the browser (menu positioning, the destructive-red styling on Sign out,
+keyboard nav), that's the first place to check.
