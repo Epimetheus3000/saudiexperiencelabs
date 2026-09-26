@@ -792,7 +792,7 @@ export function IdeaDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-2 pr-6">
             <DialogTitle>{idea.title}</DialogTitle>
             <FavoriteToggle
               ideaId={idea.id}

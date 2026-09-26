@@ -391,3 +391,30 @@ test page — so a live click-through of this menu wasn't possible in this
 session; verified via `next build`/`eslint` only. If something looks off
 in the browser (menu positioning, the destructive-red styling on Sign out,
 keyboard nav), that's the first place to check.
+
+## Idea detail dialog: star moved next to the title; header pattern/logo removed
+
+Two follow-up fixes after the hamburger menu change, from live feedback:
+
+- **Favorite star overlapped the dialog's close (X) button.**
+  `IdeaDetailDialog`'s header (`idea-detail-dialog.tsx`) used
+  `justify-between` to push `FavoriteToggle` to the far right of the
+  header row — the same corner as `DialogContent`'s own close button
+  (`absolute top-2 right-2`, in `dialog.tsx`), so they collided. Fixed by
+  changing the header row to `items-center gap-2` (star sits right next
+  to the title text, not pinned to the row's far edge) and adding `pr-6`
+  so the title+star group doesn't run under the close button on long
+  titles.
+- **Removed the lab header's decorative branding**: the Saudi Experience
+  Labs logo + its `.pattern-strip` background that was fixed to the
+  top-left corner of the viewport, and the full-width `.pattern-strip`
+  bar fixed to the bottom — both in `src/app/labs/[labId]/layout.tsx`.
+  Per the user, these were visual clutter, not wanted in the lab view.
+  The header's left padding (`pl-36`, sized to clear the old top-left
+  brand block) is back to a normal `px-6`; the wrapper's `pb-3` (reserved
+  for the old bottom bar) is also gone.
+  The `.pattern-strip` CSS class itself (`globals.css`) is untouched and
+  still used by `ColumnBand` in `pipeline-board.tsx` (the thin colored
+  band under each pipeline column header) and by the login/confirm pages'
+  own logo — this change only removed the two lab-layout usages, not the
+  class or the asset files.

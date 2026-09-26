@@ -40,7 +40,7 @@ export default async function LabLayout({
 
   return (
     <div
-      className="flex flex-1 flex-col pb-3"
+      className="flex flex-1 flex-col"
       style={
         {
           "--lab-primary": lab.primary_color,
@@ -49,29 +49,7 @@ export default async function LabLayout({
       }
     >
       <SquareCorners />
-      {/* Saudi Experience Labs brand mark, locked to the top-left corner of
-          the viewport regardless of scroll — distinct from the per-lab
-          identity (accent color, lab logo) that follows in the header. */}
-      <div className="fixed top-0 left-0 z-20 flex h-24 w-28 items-center justify-center overflow-hidden">
-        <div
-          className="pattern-strip absolute inset-0"
-          style={{ "--strip-color": "var(--brand-purple-dark)" } as React.CSSProperties}
-          aria-hidden
-        />
-        <Image
-          src="/brand/saudi-experience-labs-logo.png"
-          alt="Saudi Experience Labs"
-          width={747}
-          height={243}
-          className="relative z-10 h-9 w-auto"
-          priority
-        />
-      </div>
-      {/* Background stays white per the brand guidelines (only purple, white,
-          or imagery are permitted as backgrounds) — per-lab identity comes
-          from the accent-colored text/border and the Strip pattern band
-          below, not a tinted background fill. */}
-      <header className="flex items-center justify-between gap-4 bg-background py-5 pr-6 pl-36">
+      <header className="flex items-center justify-between gap-4 bg-background py-5 px-6">
         <div className="flex items-center gap-4">
           {lab.logo_url && (
             <Image
@@ -127,9 +105,6 @@ export default async function LabLayout({
         </div>
       </header>
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
-      {/* Fixed to the viewport, not the page — a persistent brand accent
-          rather than a divider that just scrolls away with the header. */}
-      <div className="pattern-strip fixed inset-x-0 bottom-0 z-10 h-3" aria-hidden />
     </div>
   );
 }
