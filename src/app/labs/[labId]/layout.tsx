@@ -70,14 +70,14 @@ export default async function LabLayout({
           {lab.header_image_url && (
             // The banner's ~4.8:1 aspect ratio means it needs real height to
             // stay legible (the wordmark + partner text are small relative
-            // to the whole graphic) — 5.75rem (was 5rem, +15%) renders it at
-            // roughly 442px wide.
+            // to the whole graphic) — 6.9rem (was 5.75rem, +20%) renders it
+            // at roughly 532px wide.
             <Image
               src={lab.header_image_url}
               alt={lab.name}
               width={1599}
               height={332}
-              className="h-[5.75rem] w-auto object-contain"
+              className="h-[6.9rem] w-auto object-contain"
               unoptimized
               priority
             />

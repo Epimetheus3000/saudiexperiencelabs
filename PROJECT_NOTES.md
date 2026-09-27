@@ -533,9 +533,11 @@ Master/admin) couldn't tell this was doing anything useful is that
 "/" always looks the same regardless of which labs they're formally a
 member of.
 
-## Header banner size bump (+15%)
+## Header banner size bumps (+15%, then +20% more)
 
-`layout.tsx`'s header banner (`lab.header_image_url`) went from `h-20`
-(5rem/80px, ~385px wide) to `h-[5.75rem]` (92px, ~442px wide) — a
-straight 15% increase per request. Tailwind has no default step at that
-exact value, hence the arbitrary `h-[...]` instead of a bare utility.
+`layout.tsx`'s header banner (`lab.header_image_url`): `h-20` (5rem/80px,
+~385px wide) → `h-[5.75rem]` (92px, ~442px wide, +15%) → `h-[6.9rem]`
+(110.4px, ~532px wide, +20% on top of that) — two successive size-bump
+requests, each a straight percentage increase on the current value, not
+the original. Tailwind has no default step at either exact value, hence
+the arbitrary `h-[...]` instead of a bare utility.
