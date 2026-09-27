@@ -15,6 +15,7 @@ export interface Database {
           primary_color: string;
           partner_name: string | null;
           partner_logo_url: string | null;
+          header_image_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -24,6 +25,7 @@ export interface Database {
           primary_color?: string;
           partner_name?: string | null;
           partner_logo_url?: string | null;
+          header_image_url?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["labs"]["Insert"]>;

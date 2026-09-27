@@ -31,7 +31,7 @@ export default async function LabLayout({
   const supabase = await createClient();
   const { data: lab } = await supabase
     .from("labs")
-    .select("id, name, logo_url, primary_color, partner_name, partner_logo_url")
+    .select("id, name, logo_url, primary_color, partner_name, partner_logo_url, header_image_url")
     .eq("id", labId)
     .single();
 
@@ -65,12 +65,30 @@ export default async function LabLayout({
             <Link href="/" className="text-xs text-muted-foreground hover:underline">
               ← All labs
             </Link>
-            <h1 className="text-lg font-semibold text-gray-600">{toTitleCase(lab.name)}</h1>
+            {/* A header banner (below) already bakes in the lab name and
+                partner text — the plain-text name only shows without one. */}
+            {!lab.header_image_url && (
+              <h1 className="text-lg font-semibold text-gray-600">{toTitleCase(lab.name)}</h1>
+            )}
           </div>
+          {lab.header_image_url && (
+            // The banner's ~4.8:1 aspect ratio means it needs real height to
+            // stay legible (the wordmark + partner text are small relative
+            // to the whole graphic) — h-20 renders it at roughly 385px wide.
+            <Image
+              src={lab.header_image_url}
+              alt={lab.name}
+              width={1599}
+              height={332}
+              className="h-20 w-auto object-contain"
+              unoptimized
+              priority
+            />
+          )}
         </div>
 
         <div className="flex items-center gap-4">
-          {lab.partner_name && (
+          {!lab.header_image_url && lab.partner_name && (
             <div
               className="flex items-center gap-4 border-l-4 bg-muted/40 py-2 pr-4 pl-4"
               style={{ borderLeftColor: "var(--lab-primary)" }}

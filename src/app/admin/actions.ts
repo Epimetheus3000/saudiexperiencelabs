@@ -25,15 +25,23 @@ const labSchema = z.object({
   logo_url: z.string().url().optional().or(z.literal("")),
   partner_name: z.string().optional(),
   partner_logo_url: z.string().url().optional().or(z.literal("")),
+  // No .url() check — this also accepts a same-origin path like
+  // "/brand/lab-headers/culinary.png" for banners bundled into the app.
+  header_image_url: z.string().optional().or(z.literal("")),
 });
 
 function labFromForm(formData: FormData) {
+  // CreateLabForm doesn't include partner_name/partner_logo_url/
+  // header_image_url fields — formData.get() returns null for those, and
+  // zod's .optional() rejects an explicit null (only undefined/omitted
+  // passes), so default to "" for any field a given form might not send.
   return labSchema.safeParse({
     name: formData.get("name"),
     primary_color: formData.get("primary_color"),
-    logo_url: formData.get("logo_url"),
-    partner_name: formData.get("partner_name"),
-    partner_logo_url: formData.get("partner_logo_url"),
+    logo_url: formData.get("logo_url") ?? "",
+    partner_name: formData.get("partner_name") ?? "",
+    partner_logo_url: formData.get("partner_logo_url") ?? "",
+    header_image_url: formData.get("header_image_url") ?? "",
   });
 }
 
@@ -49,6 +57,7 @@ export async function createLab(formData: FormData) {
     logo_url: parsed.data.logo_url || null,
     partner_name: parsed.data.partner_name || null,
     partner_logo_url: parsed.data.partner_logo_url || null,
+    header_image_url: parsed.data.header_image_url || null,
   });
   if (error) return fail(error.message);
 
@@ -71,6 +80,7 @@ export async function updateLab(labId: string, formData: FormData) {
       logo_url: parsed.data.logo_url || null,
       partner_name: parsed.data.partner_name || null,
       partner_logo_url: parsed.data.partner_logo_url || null,
+      header_image_url: parsed.data.header_image_url || null,
     })
     .eq("id", labId);
   if (error) return fail(error.message);

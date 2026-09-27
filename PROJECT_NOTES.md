@@ -448,3 +448,52 @@ reproduction of an official Visit Saudi guideline element (with page
 references), so they're cheap to keep around if a future page ever
 wants that patterned look again. If nothing ever picks them back up,
 they're safe to delete along with `/public/brand/pattern-strip-mask.png`.
+
+## Per-lab header banner images (replaces name text + partner block)
+
+The user supplied 4 finished banner graphics (each: Saudi script mark +
+"<LAB TYPE> EXPERIENCE LAB" wordmark + "in partnership with <partner>",
+all baked into one ~1599×332 PNG) — one each for Architecture (partner
+Archinations), Authenticity (Hihome), Culinary (AlKhaleej/Gordon Ramsay
+Academy), and Musical (Vocally). Saved as static assets at
+`public/brand/lab-headers/{architecture,authenticity,culinary,musical}.png`
+rather than uploaded to Supabase Storage — this container has no
+Supabase credentials to upload with, and the existing logo/partner-logo
+fields are plain "paste a URL" text inputs anyway (no Storage upload
+flow exists in this app at all), so a same-origin static path is
+consistent with that pattern, not a new one.
+
+- **`supabase/migrations/0004_lab_header_image.sql`**: adds
+  `labs.header_image_url text`, then seeds it for any lab whose `name`
+  contains "architecture"/"authenticity"/"culinary"/"musical"
+  (case-insensitive `ilike`) with the matching path above. **Not run
+  yet** — same as every other migration in this project, the user runs
+  it themselves in the Supabase SQL editor.
+- **`src/app/labs/[labId]/layout.tsx`**: when `lab.header_image_url` is
+  set, renders that image in the header (sized `h-20`, ~385px wide —
+  needed real height since the banner's ~4.8:1 aspect ratio makes the
+  wordmark/partner text small relative to the whole graphic) and hides
+  both the plain-text `<h1>` lab name AND the separate partner block
+  (logo + "In partnership with X"), since the banner already contains
+  both. Labs without a `header_image_url` are completely unaffected —
+  same text-based header as before. The small per-lab `logo_url` square
+  and the "← All labs" link are untouched either way.
+- **Admin-editable going forward**: added a "Header banner image URL"
+  text input to `EditLabForm`
+  (`src/app/admin/labs/[labId]/edit-lab-form.tsx`), and threaded
+  `header_image_url` through `createLab`/`updateLab`
+  (`src/app/admin/actions.ts`). Its zod schema deliberately has no
+  `.url()` check (unlike `logo_url`/`partner_logo_url`) so a relative
+  path like `/brand/lab-headers/culinary.png` validates, not just a
+  full `https://` URL.
+- **Found and fixed in passing**: `labFromForm` in `actions.ts` was
+  building the zod input object from `formData.get(...)` directly for
+  every field, including `partner_name`/`partner_logo_url` — but
+  `CreateLabForm` doesn't render those inputs at all, so
+  `formData.get()` returns `null` for them on lab creation, and zod's
+  `.optional()` rejects an explicit `null` (only accepts `undefined`/an
+  omitted key). This meant **creating a new lab was already broken**
+  before this change, throwing a validation error. Fixed by defaulting
+  every optional field to `""` with `?? ""` before parsing, and made
+  sure the new `header_image_url` field followed the same safe pattern
+  rather than reintroducing the bug a third time.

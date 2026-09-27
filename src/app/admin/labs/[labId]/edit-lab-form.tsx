@@ -15,6 +15,7 @@ export function EditLabForm({
   logoUrl,
   partnerName,
   partnerLogoUrl,
+  headerImageUrl,
 }: {
   labId: string;
   name: string;
@@ -22,6 +23,7 @@ export function EditLabForm({
   logoUrl: string | null;
   partnerName: string | null;
   partnerLogoUrl: string | null;
+  headerImageUrl: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -61,6 +63,18 @@ export function EditLabForm({
           defaultValue={partnerLogoUrl ?? ""}
           placeholder="https://…"
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="header_image_url">Header banner image URL</Label>
+        <Input
+          id="header_image_url"
+          name="header_image_url"
+          defaultValue={headerImageUrl ?? ""}
+          placeholder="https://… or /brand/lab-headers/…"
+        />
+        <p className="text-xs text-muted-foreground">
+          When set, replaces the lab name text and partner block in the header with this image.
+        </p>
       </div>
       <Button type="submit" disabled={isPending}>
         {isPending ? "Saving…" : "Save"}

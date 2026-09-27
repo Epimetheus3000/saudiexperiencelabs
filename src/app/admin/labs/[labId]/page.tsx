@@ -66,6 +66,7 @@ export default async function AdminLabDetailPage({
           logoUrl={lab.logo_url}
           partnerName={lab.partner_name}
           partnerLogoUrl={lab.partner_logo_url}
+          headerImageUrl={lab.header_image_url}
         />
       </div>
 
