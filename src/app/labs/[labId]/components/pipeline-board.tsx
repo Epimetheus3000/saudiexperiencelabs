@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
@@ -42,7 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Star, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Search, Star, LayoutGrid, List as ListIcon, ArrowLeft } from "lucide-react";
 
 const STAGE_ICONS: Record<string, LucideIcon> = {
   Longlist: ListChecks,
@@ -459,6 +460,11 @@ export function PipelineBoard({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" render={<Link href="/" />}>
+          <ArrowLeft className="size-3.5" />
+          Labs Overview
+        </Button>
+
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input

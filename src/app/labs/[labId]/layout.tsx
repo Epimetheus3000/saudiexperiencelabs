@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -61,16 +60,13 @@ export default async function LabLayout({
               unoptimized
             />
           )}
-          <div>
-            <Link href="/" className="text-xs text-muted-foreground hover:underline">
-              ← All labs
-            </Link>
-            {/* A header banner (below) already bakes in the lab name and
-                partner text — the plain-text name only shows without one. */}
-            {!lab.header_image_url && (
-              <h1 className="text-lg font-semibold text-gray-600">{toTitleCase(lab.name)}</h1>
-            )}
-          </div>
+          {/* A header banner (below) already bakes in the lab name and
+              partner text — the plain-text name only shows without one.
+              "Labs Overview" (nav back to "/") moved into the pipeline
+              toolbar, in line with search — see pipeline-board.tsx. */}
+          {!lab.header_image_url && (
+            <h1 className="text-lg font-semibold text-gray-600">{toTitleCase(lab.name)}</h1>
+          )}
           {lab.header_image_url && (
             // The banner's ~4.8:1 aspect ratio means it needs real height to
             // stay legible (the wordmark + partner text are small relative

@@ -507,3 +507,28 @@ at the last few letters ("architectuRE" vs "architectuRAL"), so `ilike`
 found no match and the column stayed `null` for that one row. 0005
 re-runs the same update with `'%architect%'` instead, which matches
 either wording and can't collide with the other three lab names.
+
+## "Labs Overview" moved into the pipeline toolbar
+
+The "← All labs" link used to live in `layout.tsx`'s header, stacked
+above the lab name. Per request, moved into the pipeline board's
+search/filter toolbar (`pipeline-board.tsx`) as the first item, in line
+with search — now a proper `Button` (`variant="outline"`, `ArrowLeft`
+icon) reading "Labs Overview", rendered via
+`render={<Link href="/" />}` same as other Button-as-link usages in this
+codebase. `layout.tsx` no longer imports `next/link` at all (nothing
+else there needed it). Applies to both the board and list view since the
+toolbar sits above the `view === "list" ? ... : ...` split.
+
+Confirmed for the user: this link (both before and after the move) was
+never admin-gated — it just points at `/`, which every signed-in user
+can open. `/` itself queries `labs` filtered by the `has_lab_access` RLS
+policy (`0001_init.sql`), which passes for a master (sees every lab) or
+for a regular member with a `lab_memberships` row for that lab (sees
+only the labs they're assigned to). So `/` already **is** the
+multi-lab navigation hub for team members — a user in 3 labs sees 3
+cards there and clicks between them. The reason the user (as
+Master/admin) couldn't tell this was doing anything useful is that
+`is_master` bypasses membership and always shows every lab, so their own
+"/" always looks the same regardless of which labs they're formally a
+member of.
