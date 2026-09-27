@@ -532,3 +532,10 @@ Master/admin) couldn't tell this was doing anything useful is that
 `is_master` bypasses membership and always shows every lab, so their own
 "/" always looks the same regardless of which labs they're formally a
 member of.
+
+## Header banner size bump (+15%)
+
+`layout.tsx`'s header banner (`lab.header_image_url`) went from `h-20`
+(5rem/80px, ~385px wide) to `h-[5.75rem]` (92px, ~442px wide) — a
+straight 15% increase per request. Tailwind has no default step at that
+exact value, hence the arbitrary `h-[...]` instead of a bare utility.
