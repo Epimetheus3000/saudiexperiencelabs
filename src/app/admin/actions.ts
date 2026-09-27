@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { requireMaster } from "@/lib/auth/require-master";
 import { createClient } from "@/lib/supabase/server";
@@ -252,6 +253,31 @@ export async function inviteUser(formData: FormData) {
 
   revalidatePath("/admin/users");
   return ok();
+}
+
+// Fallback for when the invite/magic-link email itself never arrives
+// (deliverability is outside our control — corporate spam filters, SMTP
+// hiccups). generateLink doesn't send anything; it just creates the token
+// server-side, same as the email flow would, and hands back a link. We
+// route it through our own /auth/confirm (token_hash + explicit click)
+// rather than Supabase's default /auth/v1/verify redirect chain, for the
+// same reason the magic-link flow does — see PROJECT_NOTES.md.
+export async function generateSignInLink(email: string) {
+  await requireMaster();
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  if (error) return fail(error.message);
+
+  const h = await headers();
+  const host = h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  if (!host) return fail("Couldn't determine the site's URL");
+
+  const link = `${proto}://${host}/auth/confirm?token_hash=${data.properties.hashed_token}&type=magiclink`;
+  return { ok: true as const, link };
 }
 
 export async function removeUser(userId: string) {

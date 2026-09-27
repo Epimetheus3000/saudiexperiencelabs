@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { removeUser } from "@/app/admin/actions";
+import { removeUser, generateSignInLink } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,6 +43,22 @@ export function UserRow({
     });
   }
 
+  function onCopyLink() {
+    startTransition(async () => {
+      const result = await generateSignInLink(email);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(result.link);
+        toast.success("Sign-in link copied — share it with them directly");
+      } catch {
+        toast.error(`Couldn't copy automatically — here's the link: ${result.link}`);
+      }
+    });
+  }
+
   return (
     <div className="flex items-center justify-between px-4 py-3">
       <div className="flex flex-col gap-1">
@@ -58,24 +74,35 @@ export function UserRow({
         </span>
       </div>
       {!isMaster && (
-        <AlertDialog>
-          <AlertDialogTrigger render={<Button size="sm" variant="ghost" disabled={isPending} />}>
-            Remove
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remove {email}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This permanently deletes their account and all lab memberships. This can&apos;t
-                be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={onRemove}>Remove</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={isPending}
+            onClick={onCopyLink}
+            title="Generate a sign-in link and copy it, for when the invite email doesn't arrive"
+          >
+            Copy sign-in link
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button size="sm" variant="ghost" disabled={isPending} />}>
+              Remove
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remove {email}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently deletes their account and all lab memberships. This can&apos;t
+                  be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onRemove}>Remove</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       )}
     </div>
   );

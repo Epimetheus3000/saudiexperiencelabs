@@ -541,3 +541,56 @@ member of.
 requests, each a straight percentage increase on the current value, not
 the original. Tailwind has no default step at either exact value, hence
 the arbitrary `h-[...]` instead of a bare utility.
+
+## Invited team members never received the invite email — link fallback
+
+Reported symptom: admin invited team members (`InviteUserForm` →
+`inviteUser()` in `admin/actions.ts`, which calls
+`admin.auth.admin.inviteUserByEmail`) and assigned them to labs
+(`addMembership` — a plain DB insert, sends no notification of its own),
+but the invite email itself never arrived.
+
+Code review found no application bug in that path — `inviteUserByEmail`
+would have surfaced an error toast if the call itself had failed, and it
+apparently didn't. This points at Supabase project configuration
+(SMTP/template/deliverability), which can't be diagnosed or fixed from
+this sandbox — no Supabase dashboard or Management API access here. Gave
+the user a checklist to check themselves (Auth Logs, whether Custom SMTP
+is still enabled, spam folders, the "Invite user" email template).
+
+**Built regardless of the root cause**: `generateSignInLink(email)`
+(`admin/actions.ts`) and a "Copy sign-in link" button on every user row
+(`admin/users/user-row.tsx`). Uses
+`admin.auth.admin.generateLink({ type: "magiclink", email })` — this
+creates the token server-side (and creates the user if they somehow
+don't exist yet) but **sends no email at all**; we build our own URL
+from `data.properties.hashed_token` pointed at our own `/auth/confirm`
+page (`${origin}/auth/confirm?token_hash=...&type=magiclink`) and hand
+it to the admin to copy and share by any channel they trust (Slack,
+WhatsApp, re-typing the email). This sidesteps email deliverability
+entirely for onboarding, and doubles as a permanent safety net — if a
+future invite email fails silently again, this is always available per
+user, no re-invite needed. `type: "magiclink"` rather than `"invite"`
+deliberately: this app is fully passwordless, so there's no meaningful
+difference in what either link does once clicked (both land on
+`verifyOtp` → signed in) — using the same type our `/login` flow already
+proves out end-to-end avoids re-verifying a second, less-exercised
+code path. Origin is derived from the request's own `host`/
+`x-forwarded-proto` headers (`next/headers`), not a hardcoded/env
+site URL — one less thing to keep in sync if the domain ever changes.
+
+**One more thing worth doing in the Supabase dashboard** (can't do this
+one from here either): the "Invite user" email template likely still
+uses the default `{{ .ConfirmationURL }}`, which routes through
+Supabase's own `/auth/v1/verify` PKCE-style redirect chain — the exact
+class of link that corporate email security gateways were shown earlier
+in this project to break by pre-fetching/consuming single-use tokens
+before the real recipient clicks (see the Magic Link section above).
+Recommended fix, mirroring that one: change the "Invite user" template
+to link to
+`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite`
+instead, so it goes through our own click-required `/auth/confirm` page.
+Even if the current "no email at all" symptom turns out to be pure
+deliverability (SMTP/spam) and unrelated, this template change is still
+worth making so a *future* invite that does get delivered isn't silently
+broken by the same link-consumption issue magic links had.
