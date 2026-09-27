@@ -497,3 +497,13 @@ consistent with that pattern, not a new one.
   every optional field to `""` with `?? ""` before parsing, and made
   sure the new `header_image_url` field followed the same safe pattern
   rather than reintroducing the bug a third time.
+
+**Follow-up bug (`0005_fix_architecture_header_image_match.sql`)**: after
+running 0004, the banner showed up for Authenticity/Culinary/Musical but
+not Architecture. Cause: the lab is apparently named something like
+"Architectural Experience Lab" (adjective form), and `'%architecture%'`
+is not a substring of "architectural" — they share a prefix but diverge
+at the last few letters ("architectuRE" vs "architectuRAL"), so `ilike`
+found no match and the column stayed `null` for that one row. 0005
+re-runs the same update with `'%architect%'` instead, which matches
+either wording and can't collide with the other three lab names.
