@@ -36,7 +36,9 @@ function ConfirmCard() {
     const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     if (error) {
       setStatus("error");
-      setErrorMessage(error.message);
+      setErrorMessage(
+        "That link expired or was already used. Go back and request a new one, or use the code from the email.",
+      );
       return;
     }
     router.push(next);

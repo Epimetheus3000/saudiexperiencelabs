@@ -36,7 +36,7 @@ export default async function Home() {
       <main className="flex-1 p-6">
         {!labs || labs.length === 0 ? (
           <p className="text-muted-foreground">
-            You don&apos;t have access to any labs yet. Ask your admin to add you to one.
+            Your account is active but not assigned to a lab yet. Contact the STA team.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
