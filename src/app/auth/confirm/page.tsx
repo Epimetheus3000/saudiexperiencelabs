@@ -37,7 +37,7 @@ function ConfirmCard() {
     if (error) {
       setStatus("error");
       setErrorMessage(
-        "That link expired or was already used. Go back and request a new one, or use the code from the email.",
+        "That sign-in link has already been used or has expired. Go back and enter your email to get a new one.",
       );
       return;
     }

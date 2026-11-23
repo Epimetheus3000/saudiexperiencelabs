@@ -23,14 +23,18 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+// Shown when someone arrives from a sign-in or invite link that no longer
+// works. Most often a corporate email scanner opened the link first and
+// used it up, so the person's own click finds it already spent.
 const LINK_FAILED_MESSAGE =
-  "That link expired or was opened in a different browser. Request a new one or use the code.";
+  "That sign-in link has already been used or has expired. Enter your email below and we'll send you a new one.";
 
 export default function LoginPage() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
   const {
     register,
     handleSubmit,
@@ -76,20 +80,36 @@ export default function LoginPage() {
     // The magic link's destination is set in the Supabase "Magic Link" email
     // template (/auth/confirm?token_hash=...&type=magiclink), not here — see
     // PROJECT_NOTES.md for why this uses verifyOtp instead of the PKCE
-    // exchangeCodeForSession flow. The same email also carries a one-time
-    // code ({{ .Token }}) that can be typed in below, in any browser.
+    // exchangeCodeForSession flow. If the template also includes the
+    // one-time code ({{ .Token }}), it can be typed in instead, in any
+    // browser — offered as an optional step, never required.
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: values.email,
+      // Only invited people can sign in; a typo must not create an account.
+      options: { shouldCreateUser: false },
     });
 
     if (error) {
-      toast.error(error.message);
+      if (/signups? not allowed|not found/i.test(error.message)) {
+        toast.error(
+          "This email isn't registered yet. Check the spelling, or ask the STA team to invite you.",
+        );
+        return;
+      }
+      // Supabase allows one email per address per minute; an invite counts.
+      const waitMatch = /after (\d+) seconds?/i.exec(error.message);
+      toast.error(
+        waitMatch || error.status === 429
+          ? `An email was just sent to this address. Please wait ${waitMatch ? `${waitMatch[1]} seconds` : "a minute"}, then try again — or use the link in the email you already have.`
+          : "We couldn't send the email. Please check the address and try again.",
+      );
       return;
     }
 
     setNotice(null);
     setCode("");
+    setShowCode(false);
     setSentTo(values.email);
   }
 
@@ -139,8 +159,8 @@ export default function LoginPage() {
           />
           <CardDescription>
             {sentTo
-              ? `We emailed ${sentTo}. Enter the code from the email, or click the link in it.`
-              : "Sign in with a code or link sent to your email."}
+              ? `Check your inbox at ${sentTo} and click the sign-in link. It can take a minute to arrive — check spam too.`
+              : "Enter your email and we'll send you a sign-in link."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -165,36 +185,48 @@ export default function LoginPage() {
                 )}
               </div>
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Sending…" : "Email me a sign-in code"}
+                {isSubmitting ? "Sending…" : "Email me a sign-in link"}
               </Button>
             </form>
           ) : (
-            <form onSubmit={onVerifyCode} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
-                <Input
-                  id="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="Code from the email"
-                  maxLength={12}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={verifying}>
-                {verifying ? "Signing in…" : "Sign in"}
-              </Button>
+            <div className="space-y-4">
+              {showCode ? (
+                <form onSubmit={onVerifyCode} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Code from the email</Label>
+                    <Input
+                      id="code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={12}
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={verifying}>
+                    {verifying ? "Signing in…" : "Sign in"}
+                  </Button>
+                </form>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowCode(true)}
+                >
+                  The email has a number code instead
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
                 className="w-full"
                 onClick={() => setSentTo(null)}
               >
-                Use a different email or send a new code
+                Use a different email or send again
               </Button>
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>
