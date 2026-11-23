@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/confirm"];
+// /auth/signout is public so signing out with an already-expired session
+// still reaches the route (and its 303 to /login) instead of being
+// redirected here as a POST, which /login rejects with 405.
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/confirm", "/auth/signout"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
